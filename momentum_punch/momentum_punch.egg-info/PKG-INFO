@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: momentum-punch
+Version: 0.2.0
+Summary: Auditable sentiment-aware portfolio research pipeline
+Requires-Python: >=3.10
+Requires-Dist: numpy<3,>=1.26
+Requires-Dist: pandas<3,>=2.0
+Requires-Dist: scipy<2,>=1.11
+Requires-Dist: requests<3,>=2.31
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8; extra == "dev"
+Requires-Dist: ruff<1,>=0.5; extra == "dev"
+Requires-Dist: mypy<2,>=1.10; extra == "dev"
+Requires-Dist: pandas-stubs>=2.2; extra == "dev"

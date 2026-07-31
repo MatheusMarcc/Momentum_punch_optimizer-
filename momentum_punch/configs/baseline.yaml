@@ -1,0 +1,6 @@
+experiment_id: A0_baseline
+sentiment_mode: none
+circuit_breaker: false
+covariance_method: sample
+transaction_cost_bps: 10
+status: pending_real_data

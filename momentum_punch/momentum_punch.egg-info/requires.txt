@@ -1,0 +1,10 @@
+numpy<3,>=1.26
+pandas<3,>=2.0
+scipy<2,>=1.11
+requests<3,>=2.31
+
+[dev]
+pytest<9,>=8
+ruff<1,>=0.5
+mypy<2,>=1.10
+pandas-stubs>=2.2

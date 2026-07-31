@@ -1,0 +1,39 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\definecolor{mpnavy}{HTML}{0A1E49}
+\definecolor{mporange}{HTML}{F28C00}
+
+\title{\textbf{\textcolor{mpnavy}{Momentum Punch}}\\
+\large Sentiment Alpha Portfolio}
+\author{Equipe MMA — Mateus, Maria e Ana}
+\date{Desafio Itaú Asset Quant AI 2026}
+
+\begin{document}
+\maketitle
+\begin{center}
+\includegraphics[width=0.30\textwidth]{assets/volatility_counter_classic.jpeg}
+\end{center}
+
+\begin{abstract}
+Investigamos se informações textuais, transformadas em sinais auditáveis de
+sentimento e incerteza, podem complementar estimadores tradicionais de retorno
+e risco em uma alocação dinâmica de ETFs brasileiros e CDI. Este pré-relatório
+descreve a hipótese, o protocolo temporal, as ablações e a arquitetura
+reprodutível. Nenhum resultado sintético é tratado como evidência financeira.
+\end{abstract}
+
+\input{sections/01_metodologia}
+\input{sections/02_validacao}
+\input{sections/03_limitacoes}
+
+\paragraph{Aviso.} Documento de pesquisa. Não constitui recomendação de investimento.
+\end{document}

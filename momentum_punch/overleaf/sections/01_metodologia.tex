@@ -1,0 +1,9 @@
+\section{Metodologia}
+O pipeline separa coleta, classificação textual, suavização, ajuste de retorno
+esperado, otimização e overlay de risco. Informações disponíveis até a data
+$t$ geram uma decisão registrada em $t$, executada apenas na sessão seguinte.
+A formulação principal usa alpha aditivo:
+\[
+\hat{\mu}_{i,t}^{\,adj}=\hat{\mu}_{i,t}+\kappa s_{i,t},
+\]
+onde $s_{i,t}\in[-1,1]$. A formulação multiplicativa permanece como ablação.

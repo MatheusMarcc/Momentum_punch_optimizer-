@@ -1,0 +1,10 @@
+experiment_id: A4_sentiment_plus_risk_overlay
+sentiment_mode: additive
+ema_span: 5
+circuit_breaker: true
+stress_scale: normalized_0_1
+stress_threshold: 0.60
+risk_off_max_equity: 0.30
+covariance_method: sample
+transaction_cost_bps: 10
+status: pending_real_data
