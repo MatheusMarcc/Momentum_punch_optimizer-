@@ -1,0 +1,13 @@
+numpy>=1.26
+pandas>=2.0
+cvxpy>=1.4
+feedparser>=6.0
+requests>=2.31
+praw>=7.7
+beautifulsoup4>=4.12
+python-bcb>=0.3
+yfinance>=0.2
+statsmodels>=0.14
+scipy>=1.11
+transformers>=4.40
+torch>=2.2

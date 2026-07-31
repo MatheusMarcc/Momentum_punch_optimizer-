@@ -1,6 +1,0 @@
-numpy>=1.26
-pandas>=2.0
-cvxpy>=1.4
-feedparser>=6.0
-requests>=2.31
-praw>=7.7
