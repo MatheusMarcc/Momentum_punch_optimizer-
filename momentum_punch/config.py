@@ -29,8 +29,11 @@ TICKER_KEYWORDS = {
 # Temas de estresse macro/geopolítico (usados para o Índice de Estresse do circuit breaker)
 STRESS_THEMES = "eleições, conflitos armados, choques globais, risco geopolítico, crise cambial"
 
-# Suavização EMA do Sentiment Score (em dias)
-EMA_SPAN = 5
+# Suavização por DECAIMENTO EXPONENCIAL BASEADO EM DIA DE CALENDÁRIO (halflife),
+# não mais em "posição na tabela" (o antigo EMA_SPAN=5 tratava 5 OBSERVAÇÕES
+# como se fossem 5 dias consecutivos — com fonte esparsa tipo CVM, isso fazia
+# uma notícia de meses atrás "contar" como se fosse de poucos dias atrás).
+EMA_HALFLIFE_DAYS = 5
 
 # Otimização (Markowitz modificado)
 RISK_AVERSION = 3.0          # penalidade de risco (lambda) na função objetivo
@@ -50,8 +53,23 @@ COV_LOOKBACK_DAYS = 60
 # Sentiment score bruto do LLM: intervalo esperado
 SENTIMENT_MIN, SENTIMENT_MAX = -1.0, 1.0
 
-# Quanto o sentiment score "empurra" o retorno esperado histórico (fator de escala)
-SENTIMENT_TILT_STRENGTH = 0.15  # ex: score +1.0 -> +15 p.p. de tilt no mu anualizado do ativo
+# Força do tilt de sentimento POR TICKER — calibrado pela validação estatística
+# real (validate_signal_matrix.py, corrigida por Bonferroni), não um chute:
+#   ISUS11: sinal coerente e significativo em 3 horizontes (3,5,10 dias),
+#            sobrevive Bonferroni -> tilt mais forte, justificado por evidência
+#   REVE11: sinal coerente (mesmo sinal treino/teste, 4/4 horizontes) mas não
+#            sobrevive Bonferroni -> tilt reduzido, cautela
+#   GOVE11: sinal INVERTE entre treino/teste em todos os horizontes -> tilt
+#            zerado, não confiável em nenhuma direção
+#   BOVA11: sem padrão coerente -> tilt reduzido (mantém participação pequena
+#            do sentimento sem apostar forte numa leitura instável)
+SENTIMENT_TILT_STRENGTH_BASE = 0.15  # usado como fallback se um ticker não estiver no dict abaixo
+SENTIMENT_TILT_STRENGTH_POR_TICKER = {
+    "ISUS11": 0.30,   # evidência forte -> dobra o peso do base
+    "GOVE11": 0.0,    # sem confiabilidade -> desliga
+    "REVE11": 0.08,   # evidência fraca/coerente mas não significativa -> reduz
+    "BOVA11": 0.05,   # sem padrão -> reduz bastante, não desliga totalmente
+}
 
 # Sentiment por ticker (alimenta o Markowitz): sempre via FinBERT-PT-BR — ver
 # momentum_punch/sentiment.py. Modelo usado:

@@ -27,7 +27,7 @@ from validate_signal import (
 )
 
 
-def run_matrix(tickers: list[str], horizons: list[int], prices_csv: str, price_target: str):
+def run_matrix(tickers: list[str], horizons: list[int], prices_csv: str, price_target: str | None):
     prices_long = pd.read_csv(prices_csv, parse_dates=["data"])
     prices_wide = prices_long.pivot(index="data", columns="ticker", values="close")
     scores = pd.read_csv("data/processed/sentiment_scores.csv", index_col=0, parse_dates=True)
@@ -39,8 +39,17 @@ def run_matrix(tickers: list[str], horizons: list[int], prices_csv: str, price_t
             continue
         sinal_completo = scores[ticker]
 
+        # CORREÇÃO: por padrão, cada ticker testa contra o PRÓPRIO retorno
+        # futuro (bug anterior fixava sempre BOVA11 pra todo mundo, o que
+        # testava "sentiment do GOVE11 prevê o Ibovespa" em vez de "...prevê
+        # o próprio GOVE11" — invalidava a leitura anterior desses resultados)
+        alvo = price_target or ticker
+        if alvo not in prices_wide.columns:
+            print(f"[aviso] {alvo} não encontrado nos preços, pulando {ticker}")
+            continue
+
         for horizon in horizons:
-            retornos_futuros = compute_forward_returns(prices_wide[price_target], horizon)
+            retornos_futuros = compute_forward_returns(prices_wide[alvo], horizon)
             sinal, retornos = sinal_completo.align(retornos_futuros, join="inner")
             train_s, test_s = train_test_split_temporal(sinal.to_frame("s"))
             train_r, test_r = train_test_split_temporal(retornos.to_frame("r"))
@@ -54,6 +63,7 @@ def run_matrix(tickers: list[str], horizons: list[int], prices_csv: str, price_t
 
             rows.append({
                 "ticker": ticker,
+                "alvo_retorno": alvo,
                 "horizonte": horizon,
                 "n_treino": n_train,
                 "n_teste": n_test,
@@ -101,7 +111,7 @@ def main():
     parser.add_argument("--tickers", nargs="+", default=["ISUS11", "GOVE11", "REVE11", "BOVA11"])
     parser.add_argument("--horizons", type=int, nargs="+", default=[1, 3, 5, 10])
     parser.add_argument("--prices-csv", default="data/raw/etf_prices.csv")
-    parser.add_argument("--price-target", default="BOVA11")
+    parser.add_argument("--price-target", default=None, help="fixa um único ativo-alvo pra todos (default: cada ticker testa contra o próprio retorno)")
     args = parser.parse_args()
 
     run_matrix(args.tickers, args.horizons, args.prices_csv, args.price_target)

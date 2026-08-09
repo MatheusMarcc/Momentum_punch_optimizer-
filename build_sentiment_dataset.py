@@ -198,6 +198,8 @@ def main():
     parser.add_argument("--out", default="data/processed/sentiment_scores.csv")
     parser.add_argument("--force", action="store_true", help="reprocessa dias já escorados (ignora o CSV existente)")
     parser.add_argument("--stress", action="store_true", help="gera stress_index.csv a partir do GDELT em vez do sentiment por ticker")
+    parser.add_argument("--structured", action="store_true",
+                         help="usa o motor estruturado (LLM: sentimento+relevância+confiança, schema do pré-relatório) em vez do FinBERT")
     args = parser.parse_args()
 
     if args.stress:
@@ -219,13 +221,22 @@ def main():
             print(f"[build_sentiment_dataset] {pulados} data(s) já escorada(s) antes, pulando (use --force pra reprocessar)")
 
     n_dates = len(texts_by_date_ticker)
-    print(f"[build_sentiment_dataset] {n_dates} data(s) nova(s) a processar (sentiment via FinBERT-PT-BR)")
+    motor = "estruturado (LLM, sentimento+relevância+confiança)" if args.structured else "FinBERT-PT-BR"
+    print(f"[build_sentiment_dataset] {n_dates} data(s) nova(s) a processar (sentiment via {motor})")
 
     if n_dates == 0:
         print("[build_sentiment_dataset] Nada novo pra processar, encerrando.")
         return
 
-    novos_scores = sentiment.score_history(texts_by_date_ticker)
+    if args.structured:
+        novos_scores, confianca_df, relevancia_df = sentiment.score_history_structured(texts_by_date_ticker, provider=args.provider)
+        conf_path = args.out.replace(".csv", "_confianca.csv")
+        rel_path = args.out.replace(".csv", "_relevancia.csv")
+        confianca_df.to_csv(conf_path)
+        relevancia_df.to_csv(rel_path)
+        print(f"[build_sentiment_dataset] Confiança salva em {conf_path}, relevância em {rel_path}")
+    else:
+        novos_scores = sentiment.score_history(texts_by_date_ticker)
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     if os.path.exists(args.out) and not args.force:

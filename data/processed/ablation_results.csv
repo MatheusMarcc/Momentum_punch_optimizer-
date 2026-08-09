@@ -1,0 +1,5 @@
+config,retorno_total,cagr,sharpe,max_drawdown,custo_acumulado
+A0_baseline,58.25%,18.37%,1.23,-12.47%,4.82%
+A2_so_sentimento,57.67%,18.21%,1.22,-12.59%,4.93%
+A3_so_circuit_breaker,68.70%,21.18%,1.58,-9.48%,7.23%
+A4_completo,67.33%,20.82%,1.56,-9.70%,7.38%

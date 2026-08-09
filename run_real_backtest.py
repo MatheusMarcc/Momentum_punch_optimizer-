@@ -13,6 +13,8 @@ Uso:
 """
 from __future__ import annotations
 
+import argparse
+
 import pandas as pd
 
 from momentum_punch import backtest, config
@@ -40,23 +42,49 @@ def load_cdi(path: str = "data/raw/bacen_sgs.csv") -> pd.Series:
     return (df["cdi_diario"] / 100).rename(config.RISK_FREE)
 
 
-def load_sentiment(path: str, price_index: pd.DatetimeIndex) -> pd.DataFrame:
+def load_sentiment(path: str, price_index: pd.DatetimeIndex, max_decay_days: int = 21) -> pd.DataFrame:
     """
-    Carrega o sentiment_scores.csv (ou stress_index.csv) e alinha com o índice
-    de datas dos preços via forward-fill: o último score conhecido continua
-    valendo até chegar um novo (é assim que, na prática, "o mercado carrega a
-    última leitura de sentimento" entre um dia de coleta e o outro).
-    Dias antes do primeiro score disponível ficam em 0.0 (neutro) — não dá pra
-    inventar sentimento retroativo.
+    Carrega o sentiment_scores.csv e alinha com o índice de preços via
+    forward-fill, MAS com decaimento por dia de calendário e corte —
+    diferente de um ffill puro, que seguraria o último score pra sempre.
+
+    Motivo: o EMA em sentiment.py decai por POSIÇÃO na tabela, não por
+    dia de calendário — com fonte esparsa (ex: CVM, meses entre eventos),
+    isso faz uma notícia antiga "durar" indevidamente. Aqui, cada dia sem
+    observação nova decai o score linearmente até zerar em max_decay_days,
+    representando que sentimento velho perde relevância com o tempo real.
     """
     df = pd.read_csv(path, index_col=0, parse_dates=True)
-    df = df.reindex(price_index).ffill().fillna(0.0)
-    return df
+    df = df.reindex(df.index.union(price_index)).sort_index()
+
+    decaido = df.copy()
+    for col in df.columns:
+        dias_desde_obs = 0
+        ultimo_valor = 0.0
+        valores = []
+        obs_real = df[col].notna()
+        for data in df.index:
+            if obs_real.get(data, False):
+                ultimo_valor = df.loc[data, col]
+                dias_desde_obs = 0
+            else:
+                dias_desde_obs += 1
+            fator_decaimento = max(0.0, 1 - dias_desde_obs / max_decay_days)
+            valores.append(ultimo_valor * fator_decaimento)
+        decaido[col] = valores
+
+    return decaido.reindex(price_index).fillna(0.0)
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mu-method", default="tilt_linear", choices=["tilt_linear", "black_litterman"])
+    parser.add_argument("--cost-bps", type=float, default=0.0, help="custo de transação por giro, em bps (ex: 10 = 0.10%). 0 = sem custo")
+    args = parser.parse_args()
+
     prices = load_prices()
     print(f"[run_real_backtest] Preços: {len(prices)} dias, tickers: {list(prices.columns)}")
+    print(f"[run_real_backtest] Método de combinação sentiment+histórico: {args.mu_method}")
 
     cdi = load_cdi().reindex(prices.index).ffill().fillna(0.0)
 
@@ -78,6 +106,8 @@ def main():
         sentiment_scores=sentiment_scores,
         stress_index=stress_index,
         benchmark="60_40",
+        mu_method=args.mu_method,
+        transaction_cost_bps=args.cost_bps,
     )
 
     print("\n=== Métricas de performance (DADO REAL) ===")
@@ -88,6 +118,16 @@ def main():
 
     n_riskoff = sum(1 for w in result["weights_history"].values() if w.get("_mode") == "RISK-OFF")
     print(f"\nRebalanceamentos em modo RISK-OFF: {n_riskoff} / {len(result['weights_history'])}")
+
+    # salva pro dashboard (Streamlit) consumir — antes só ficava impresso no terminal
+    import os
+    os.makedirs("data/processed", exist_ok=True)
+    curvas = pd.DataFrame({
+        "Momentum Punch": result["equity_curve"],
+        "Benchmark": result["benchmark_curve"],
+    })
+    curvas.to_csv("data/processed/equity_curves.csv")
+    print(f"[run_real_backtest] Equity curves salvas em data/processed/equity_curves.csv")
 
     last_date = max(result["weights_history"])
     print(f"\nÚltima alocação ({last_date.date()}):")

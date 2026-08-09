@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-08-09T19:18:24.538724",
+  "sentiment_scores": {
+    "ISUS11": 0.0,
+    "GOVE11": -0.029361242428421974,
+    "REVE11": 0.0,
+    "BOVA11": -0.09961682558059692
+  },
+  "stress_index": 0.2561332690657055,
+  "modo": "RISK-ON",
+  "pesos": {
+    "BOVA11": 0.0,
+    "GOVE11": 0.5,
+    "ISUS11": 0.0,
+    "REVE11": 0.5,
+    "CDI": 0.0
+  },
+  "mu_method": "tilt_linear"
+}

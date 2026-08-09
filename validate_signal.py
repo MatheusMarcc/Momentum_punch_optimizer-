@@ -113,10 +113,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--signal", choices=["stress_index", "sentiment"], required=True)
     parser.add_argument("--ticker", default="BOVA11", help="usado quando --signal=sentiment (ignorado pra stress_index, que é agregado)")
-    parser.add_argument("--price-target", default="BOVA11", help="qual ETF usar como alvo do retorno futuro")
+    parser.add_argument("--price-target", default=None, help="qual ETF usar como alvo do retorno futuro (default: o próprio --ticker testado)")
     parser.add_argument("--horizon", type=int, default=5, help="horizonte do retorno futuro em dias úteis")
     parser.add_argument("--prices-csv", default="data/raw/etf_prices.csv")
     args = parser.parse_args()
+
+    if args.price_target is None:
+        args.price_target = args.ticker if args.signal == "sentiment" else "BOVA11"
 
     prices_long = pd.read_csv(args.prices_csv, parse_dates=["data"])
     prices_wide = prices_long.pivot(index="data", columns="ticker", values="close")

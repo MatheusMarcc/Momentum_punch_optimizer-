@@ -56,7 +56,7 @@ def generate_sentiment_scores(
             raw[i] = 0.85 * raw[i - 1] + rng.normal(0, 0.25)
         data[t] = np.clip(raw, config.SENTIMENT_MIN, config.SENTIMENT_MAX)
     df = pd.DataFrame(data, index=dates)
-    return df.ewm(span=config.EMA_SPAN, adjust=False).mean()
+    return df.ewm(halflife=pd.Timedelta(days=config.EMA_HALFLIFE_DAYS), times=dates).mean()
 
 
 def generate_stress_index(dates: pd.DatetimeIndex, seed: int = 99) -> pd.Series:
