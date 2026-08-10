@@ -1,6 +1,6 @@
 """
 Dashboard do Momentum Punch — implementação real do "Dashboard Interativo"
-descrito no deck original, AGORA com painel de execução: botões que rodam
+descrito no deck original, com painel de execução: botões que rodam
 os scripts reais do pipeline via subprocess, sem precisar do terminal.
 Depois de cada execução, os dados exibidos abaixo recarregam automaticamente
 (Streamlit re-roda o script e relê os CSVs/JSON, que já foram atualizados).
@@ -30,10 +30,153 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(page_title="Momentum Punch — Dashboard", layout="wide", page_icon="🥊")
+st.set_page_config(page_title="Momentum Punch — Dashboard", layout="wide", page_icon="■")
 
-st.title("🥊 Momentum Punch — Sentiment Alpha Portfolio")
-st.caption("Desafio Itaú Asset Quant AI 2026 — Equipe MMA")
+# ---------------------------------------------------------------------------
+# CSS — Dark Theme
+st.markdown("""
+<style>
+    .stApp {
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+        border-right: 1px solid #333333;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #e5e5e5 !important;
+    }
+
+    .main-header {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-size: 2.4rem;
+        font-weight: 300;
+        letter-spacing: 0.1em;
+        color: #ffffff;
+        margin-bottom: 0.3rem;
+        text-transform: uppercase;
+    }
+
+    .subtitle {
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-size: 0.9rem;
+        font-weight: 300;
+        letter-spacing: 0.05em;
+        color: #999999;
+        margin-bottom: 2rem;
+    }
+
+    h2, h3 {
+        font-family: 'Helvetica Neue', Arial, sans-serif !important;
+        font-weight: 300 !important;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #ffffff !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #ffffff !important;
+        font-size: 1.7rem !important;
+        font-weight: 300 !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #999999 !important;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .stButton > button {
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d5f2e 100%);
+        color: #ffffff;
+        border: 1px solid #333333;
+        border-radius: 8px;
+        padding: 0.5rem 1.2rem;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-weight: 300;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #2d5f2e 0%, #1f4420 100%);
+        border-color: #2d5f2e;
+    }
+
+    button[kind="primary"] {
+        background: linear-gradient(135deg, #4a1414 0%, #8B0000 100%) !important;
+        border-color: #8B0000 !important;
+    }
+
+    button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #8B0000 0%, #5a0d0d 100%) !important;
+    }
+
+    hr {
+        border-color: #333333;
+        margin: 2rem 0;
+    }
+
+    p, span, label, li {
+        color: #e5e5e5 !important;
+    }
+
+    [data-testid="stExpander"] {
+        border: 1px solid #333333 !important;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.02);
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: transparent;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        color: #999999;
+        background-color: transparent;
+        border-bottom: 2px solid transparent;
+        padding: 0.5rem 0;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-weight: 300;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #2d5f2e;
+        border-bottom: 2px solid #2d5f2e;
+    }
+
+    [data-testid="stDataFrame"] {
+        border: 1px solid #333333;
+        border-radius: 6px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Header
+st.markdown('<p class="main-header">Momentum Punch</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Sentiment Alpha Portfolio — Desafio Itaú Asset Quant AI 2026 · Equipe MMA</p>', unsafe_allow_html=True)
+
+# Tema Plotly escuro, consistente com o resto da interface
+PLOTLY_THEME = dict(
+    plot_bgcolor='#0a0a0a',
+    paper_bgcolor='#0a0a0a',
+    font=dict(family='Helvetica Neue, Arial', size=11, color='#e5e5e5'),
+    xaxis=dict(showgrid=True, gridcolor='#333333', gridwidth=0.5, color='#999999', zerolinecolor='#333333'),
+    yaxis=dict(showgrid=True, gridcolor='#333333', gridwidth=0.5, color='#999999', zerolinecolor='#333333'),
+    legend=dict(bgcolor='rgba(26,26,26,0.8)', bordercolor='#333333', borderwidth=1, font=dict(color='#e5e5e5')),
+    margin=dict(t=30, b=30, l=10, r=10),
+)
+
+PALETA = ['#2d5f2e', '#8B0000', '#666666', '#4a7c4c', '#a04040', '#999999']
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +216,7 @@ def _roda_comando(cmd: list[str], label: str, timeout: int = 1800) -> bool:
     icone = "✅" if sucesso else "❌"
     with st.expander(f"{icone} {label} — output", expanded=not sucesso):
         if resultado.stdout:
-            st.code(resultado.stdout[-4000:], language="text")  # últimas ~4000 chars, log pode ser longo
+            st.code(resultado.stdout[-4000:], language="text")
         if resultado.stderr:
             st.code(resultado.stderr[-4000:], language="text")
     if sucesso:
@@ -84,162 +227,161 @@ def _roda_comando(cmd: list[str], label: str, timeout: int = 1800) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Painel de controle — dispensa terminal: cada botão roda o script de verdade
+# Sidebar — painel de execução (dispensa terminal: cada botão roda o script real)
 
-st.subheader("🎛️ Painel de execução")
-st.caption("Cada botão roda o script real via subprocess e recarrega os dados abaixo automaticamente.")
+st.sidebar.markdown("### Painel de execução")
+st.sidebar.caption("Cada botão roda o script real via subprocess e recarrega os dados ao lado.")
 
-with st.expander("1️⃣ Dados de mercado (preço, CDI, estresse macro)", expanded=False):
-    c1, c2, c3, c4 = st.columns(4)
-    if c1.button("Preço dos ETFs\n(yfinance)"):
+with st.sidebar.expander("1 · Dados de mercado", expanded=False):
+    if st.button("Preço dos ETFs (yfinance)", key="btn_precos"):
         _roda_comando(["fetch_prices_yfinance.py"], "Preço dos ETFs")
         st.rerun()
-    if c2.button("CDI/Selic/IPCA\n(Bacen SGS)"):
+    if st.button("CDI / Selic / IPCA (Bacen SGS)", key="btn_sgs"):
         _roda_comando(["collect_data.py", "--only", "bacen_sgs"], "Bacen SGS")
         st.rerun()
-    if c3.button("Expectativas macro\n(Bacen Focus)"):
+    if st.button("Expectativas macro (Bacen Focus)", key="btn_focus"):
         _roda_comando(["collect_data.py", "--only", "bacen_focus"], "Bacen Focus")
         st.rerun()
-    if c4.button("Construir\nÍndice de Estresse"):
+    if st.button("Construir Índice de Estresse", key="btn_estresse"):
         _roda_comando(["build_stress_index_focus.py"], "Índice de Estresse (Focus)")
         st.rerun()
 
-with st.expander("2️⃣ Notícia e sentimento", expanded=False):
-    c1, c2, c3 = st.columns(3)
-    if c1.button("Notícias agora\n(RSS)"):
+with st.sidebar.expander("2 · Notícia e sentimento", expanded=False):
+    if st.button("Notícias agora (RSS)", key="btn_rss"):
         _roda_comando(["collect_data.py", "--only", "rss_news"], "Coleta RSS")
         st.rerun()
-    if c2.button("Histórico CVM\n(2023-2026)"):
+    if st.button("Histórico CVM (2023-2026)", key="btn_cvm"):
         _roda_comando(["pull_cvm_historical.py", "--anos", "2023", "2024", "2025", "2026"], "Histórico CVM")
         st.rerun()
-    if c3.button("Escorar sentiment\n(FinBERT, via CVM)"):
+    if st.button("Escorar sentiment (FinBERT, via CVM)", key="btn_sentiment"):
         _roda_comando(["build_sentiment_dataset.py", "--source", "cvm", "--force"], "Sentiment (FinBERT)")
         st.rerun()
 
-with st.expander("3️⃣ Backtest e ablação", expanded=False):
-    c1, c2, c3 = st.columns(3)
-    if c1.button("Rodar backtest\n(tilt linear)"):
+with st.sidebar.expander("3 · Backtest e ablação", expanded=False):
+    if st.button("Rodar backtest (tilt linear)", key="btn_bt_linear"):
         _roda_comando(["run_real_backtest.py"], "Backtest")
         st.rerun()
-    if c2.button("Rodar backtest\n(Black-Litterman)"):
+    if st.button("Rodar backtest (Black-Litterman)", key="btn_bt_bl"):
         _roda_comando(["run_real_backtest.py", "--mu-method", "black_litterman"], "Backtest (Black-Litterman)")
         st.rerun()
-    if c3.button("Rodar ablação\n(A0/A2/A3/A4, 10bps)"):
+    if st.button("Rodar ablação (A0/A2/A3/A4, 10bps)", key="btn_ablacao"):
         _roda_comando(["run_ablations.py", "--cost-bps", "10"], "Matriz de ablação")
         st.rerun()
 
-with st.expander("4️⃣ Decisão ao vivo", expanded=True):
-    if st.button("🔴 Puxar notícia AGORA e recalcular alocação", type="primary"):
+with st.sidebar.expander("4 · Decisão ao vivo", expanded=True):
+    if st.button("Puxar notícia AGORA e recalcular", key="btn_live", type="primary"):
         _roda_comando(["run_live.py", "--json", "data/decisao_atual.json"], "Decisão ao vivo")
         st.rerun()
 
-st.divider()
+st.sidebar.markdown("---")
+st.sidebar.caption("Documento/dashboard de pesquisa. Não constitui recomendação de investimento.")
 
 
 # ---------------------------------------------------------------------------
-# Linha 1: decisão AO VIVO (run_live.py --json)
+# Conteúdo principal — abas
 
-decisao = _carrega_json_seguro("data/decisao_atual.json")
+tab_live, tab_news, tab_sent, tab_bt, tab_abl = st.tabs([
+    "Decisão ao vivo", "Notícias", "Sentiment", "Backtest", "Ablação"
+])
 
-st.subheader("📡 Decisão ao vivo")
-if decisao is None:
-    st.info("Nenhuma decisão ao vivo encontrada ainda. Rode: `python run_live.py --json data/decisao_atual.json`")
-else:
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Última atualização", decisao["timestamp"][:19].replace("T", " "))
-    modo = decisao["modo"]
-    cor_modo = "🔴" if modo == "RISK-OFF" else "🟢"
-    col2.metric("Modo do circuit breaker", f"{cor_modo} {modo}")
-    col3.metric("Índice de estresse (Focus)", f"{decisao['stress_index']:.2f}")
+# --- Decisão ao vivo -------------------------------------------------------
+with tab_live:
+    decisao = _carrega_json_seguro("data/decisao_atual.json")
 
-    col_a, col_b = st.columns(2)
+    if decisao is None:
+        st.info("Nenhuma decisão ao vivo encontrada ainda. Use o botão **Puxar notícia AGORA** na sidebar, ou rode `python run_live.py --json data/decisao_atual.json`.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Última atualização", decisao["timestamp"][:19].replace("T", " "))
+        modo = decisao["modo"]
+        cor_modo = "🟢" if modo != "RISK-OFF" else "🔴"
+        col2.metric("Modo do circuit breaker", f"{cor_modo} {modo}")
+        col3.metric("Índice de estresse (Focus)", f"{decisao['stress_index']:.2f}")
 
-    with col_a:
-        st.markdown("**Sentimento por ativo agora**")
-        sent = decisao["sentiment_scores"]
-        for ticker, score in sent.items():
-            cor = "🟢" if score > 0.1 else ("🔴" if score < -0.1 else "⚪")
-            st.write(f"{cor} **{ticker}**: {score:+.3f}")
+        st.markdown("---")
+        col_a, col_b = st.columns(2)
 
-    with col_b:
-        st.markdown("**Alocação recomendada agora**")
-        pesos = {k: v for k, v in decisao["pesos"].items() if v > 0.001}
-        fig_pizza = px.pie(names=list(pesos.keys()), values=list(pesos.values()), hole=0.4)
-        fig_pizza.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
-        st.plotly_chart(fig_pizza, use_container_width=True)
+        with col_a:
+            st.markdown("**Sentimento por ativo agora**")
+            sent = decisao["sentiment_scores"]
+            for ticker, score in sent.items():
+                cor = "🟢" if score > 0.1 else ("🔴" if score < -0.1 else "⚪")
+                st.markdown(f"{cor} **{ticker}**: {score:+.3f}")
 
-st.divider()
+        with col_b:
+            st.markdown("**Alocação recomendada agora**")
+            pesos = {k: v for k, v in decisao["pesos"].items() if v > 0.001}
+            fig_pizza = go.Figure(go.Pie(
+                labels=list(pesos.keys()),
+                values=list(pesos.values()),
+                hole=0.55,
+                marker=dict(colors=PALETA, line=dict(color='#0a0a0a', width=2)),
+                textfont=dict(color='#e5e5e5'),
+            ))
+            fig_pizza.update_layout(**PLOTLY_THEME, height=320, showlegend=True)
+            st.plotly_chart(fig_pizza, use_container_width=True, key="pizza_live")
 
+# --- Notícias ----------------------------------------------------------
+with tab_news:
+    st.subheader("Notícias mais recentes coletadas")
+    noticias = _carrega_csv_seguro("data/raw/rss_news.csv")
+    if noticias is None or noticias.empty:
+        st.info("Nenhuma notícia coletada ainda. Use o botão **Notícias agora (RSS)** na sidebar.")
+    else:
+        noticias_recentes = noticias.sort_values("publicado_em", ascending=False).head(15)
+        for _, row in noticias_recentes.iterrows():
+            with st.container():
+                st.markdown(f"**{row['titulo']}**")
+                st.caption(f"{row['fonte']} — {row['publicado_em']}")
+                st.markdown("&nbsp;", unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# Linha 2: notícias mais recentes
+# --- Sentiment ---------------------------------------------------------
+with tab_sent:
+    st.subheader("Sentiment Alpha Score — histórico")
+    scores = _carrega_csv_seguro("data/processed/sentiment_scores.csv", index_col=0, parse_dates=True)
+    if scores is None or scores.empty:
+        st.info("Nenhum histórico de sentiment ainda. Use o botão **Escorar sentiment** na sidebar.")
+    else:
+        fig_sent = go.Figure()
+        for i, col in enumerate(scores.columns):
+            fig_sent.add_trace(go.Scatter(
+                x=scores.index, y=scores[col], name=col, mode="lines",
+                line=dict(color=PALETA[i % len(PALETA)], width=2),
+            ))
+        fig_sent.update_layout(**PLOTLY_THEME, height=420, yaxis_title="Sentiment Score")
+        st.plotly_chart(fig_sent, use_container_width=True, key="sent_hist")
 
-st.subheader("📰 Notícias mais recentes coletadas")
-noticias = _carrega_csv_seguro("data/raw/rss_news.csv")
-if noticias is None or noticias.empty:
-    st.info("Nenhuma notícia coletada ainda. Rode: `python collect_data.py --only rss_news`")
-else:
-    noticias_recentes = noticias.sort_values("publicado_em", ascending=False).head(15)
-    for _, row in noticias_recentes.iterrows():
-        with st.container():
-            st.markdown(f"**{row['titulo']}**")
-            st.caption(f"{row['fonte']} — {row['publicado_em']}")
+# --- Backtest ------------------------------------------------------------
+with tab_bt:
+    st.subheader("Backtest — Momentum Punch vs Benchmark")
+    curvas = _carrega_csv_seguro("data/processed/equity_curves.csv", index_col=0, parse_dates=True)
+    if curvas is None or curvas.empty:
+        st.info("Nenhum backtest rodado ainda. Use os botões **Rodar backtest** na sidebar.")
+    else:
+        fig_bt = go.Figure()
+        for i, col in enumerate(curvas.columns):
+            fig_bt.add_trace(go.Scatter(
+                x=curvas.index, y=(curvas[col] - 1) * 100, name=col, mode="lines",
+                line=dict(color=PALETA[i % len(PALETA)], width=2),
+            ))
+        fig_bt.update_layout(**PLOTLY_THEME, height=440, yaxis_title="Retorno acumulado (%)")
+        st.plotly_chart(fig_bt, use_container_width=True, key="bt_curve")
 
-st.divider()
+        retorno_final = (curvas.iloc[-1] / curvas.iloc[0] - 1) * 100
+        col1, col2 = st.columns(2)
+        col1.metric("Momentum Punch — retorno total", f"{retorno_final['Momentum Punch']:.1f}%")
+        col2.metric("Benchmark — retorno total", f"{retorno_final['Benchmark']:.1f}%")
 
-
-# ---------------------------------------------------------------------------
-# Linha 3: sentiment histórico por ticker
-
-st.subheader("📈 Sentiment Alpha Score — histórico")
-scores = _carrega_csv_seguro("data/processed/sentiment_scores.csv", index_col=0, parse_dates=True)
-if scores is None or scores.empty:
-    st.info("Nenhum histórico de sentiment ainda. Rode: `python build_sentiment_dataset.py`")
-else:
-    fig_sent = go.Figure()
-    for col in scores.columns:
-        fig_sent.add_trace(go.Scatter(x=scores.index, y=scores[col], name=col, mode="lines"))
-    fig_sent.update_layout(height=350, margin=dict(t=20, b=20), yaxis_title="Sentiment Score")
-    st.plotly_chart(fig_sent, use_container_width=True)
-
-st.divider()
-
-
-# ---------------------------------------------------------------------------
-# Linha 4: backtest — equity curve
-
-st.subheader("💰 Backtest — Momentum Punch vs Benchmark")
-curvas = _carrega_csv_seguro("data/processed/equity_curves.csv", index_col=0, parse_dates=True)
-if curvas is None or curvas.empty:
-    st.info("Nenhum backtest rodado ainda. Rode: `python run_real_backtest.py`")
-else:
-    fig_bt = go.Figure()
-    for col in curvas.columns:
-        fig_bt.add_trace(go.Scatter(x=curvas.index, y=(curvas[col] - 1) * 100, name=col, mode="lines"))
-    fig_bt.update_layout(height=400, margin=dict(t=20, b=20), yaxis_title="Retorno acumulado (%)")
-    st.plotly_chart(fig_bt, use_container_width=True)
-
-    retorno_final = (curvas.iloc[-1] / curvas.iloc[0] - 1) * 100
-    col1, col2 = st.columns(2)
-    col1.metric("Momentum Punch — retorno total", f"{retorno_final['Momentum Punch']:.1f}%")
-    col2.metric("Benchmark — retorno total", f"{retorno_final['Benchmark']:.1f}%")
-
-st.divider()
-
-
-# ---------------------------------------------------------------------------
-# Linha 5: matriz de ablação
-
-st.subheader("🔬 Matriz de ablação (contribuição marginal de cada módulo)")
-ablacao = _carrega_csv_seguro("data/processed/ablation_results.csv")
-if ablacao is None or ablacao.empty:
-    st.info("Nenhuma ablação rodada ainda. Rode: `python run_ablations.py`")
-else:
-    st.dataframe(ablacao, use_container_width=True, hide_index=True)
-    st.caption(
-        "A0 = baseline puro | A2 = só sentimento | A3 = só circuit breaker | A4 = sistema completo. "
-        "Compare A2 vs A0 (efeito isolado do sentimento) e A4 vs A3 (sentimento ajuda por cima do circuit breaker?)."
-    )
-
-st.divider()
-st.caption("Documento/dashboard de pesquisa. Não constitui recomendação de investimento.")
+# --- Ablação ---------------------------------------------------------------
+with tab_abl:
+    st.subheader("Matriz de ablação")
+    st.caption("Contribuição marginal de cada módulo do sistema.")
+    ablacao = _carrega_csv_seguro("data/processed/ablation_results.csv")
+    if ablacao is None or ablacao.empty:
+        st.info("Nenhuma ablação rodada ainda. Use o botão **Rodar ablação** na sidebar.")
+    else:
+        st.dataframe(ablacao, use_container_width=True, hide_index=True)
+        st.caption(
+            "A0 = baseline puro | A2 = só sentimento | A3 = só circuit breaker | A4 = sistema completo. "
+            "Compare A2 vs A0 (efeito isolado do sentimento) e A4 vs A3 (sentimento ajuda por cima do circuit breaker?)."
+        )

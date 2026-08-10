@@ -1,0 +1,9 @@
+Benchmarks:
+
+Idealmente, eu incluiria três benchmarks:
+
+- 100% BOVA11;
+
+- 60% BOVA11 / 40% CDI;
+
+- 40% BOVA11 / 40% IVVB11 / 20% CDI (estático).
