@@ -44,14 +44,30 @@ def precos_sinteticos():
 # ---------------------------------------------------------------------------
 # 1. Direção econômica do alpha aditivo
 
-def test_tilt_aditivo_nao_inverte_com_mu_negativo():
+def test_tilt_aditivo_nao_inverte_com_mu_negativo(monkeypatch):
     """Sentimento positivo com mu histórico NEGATIVO deve tornar o retorno
     ajustado MENOS negativo (ou positivo), nunca mais negativo — esse é
-    exatamente o bug que o tilt multiplicativo tinha e o aditivo corrige."""
+    exatamente o bug que o tilt multiplicativo tinha e o aditivo corrige.
+
+    O kappa é forçado aqui em vez de vir do config porque o que está sob teste
+    é a FORMA do tilt, não a calibração. A calibração congelada hoje é 0 em
+    todos os ativos (nenhum sinal sobreviveu ao critério de treino), e com
+    kappa=0 este teste passaria a não exercer nada — falharia por um motivo
+    que não tem relação com o invariante, e mascararia uma regressão real se
+    alguém trocasse o aditivo pelo multiplicativo depois."""
+    monkeypatch.setattr(config, "SENTIMENT_TILT_STRENGTH_POR_TICKER", {t: 0.15 for t in config.TICKERS})
+    monkeypatch.setattr(config, "SENTIMENT_TILT_STRENGTH_BASE", 0.15)
+
     mu = pd.Series({"ISUS11": -0.05, "GOVE11": -0.05, "REVE11": -0.05, "BOVA11": -0.05})
     sentiment_bom = pd.Series({"ISUS11": 0.8, "GOVE11": 0.0, "REVE11": 0.0, "BOVA11": 0.0})
-    mu_adj = optimizer.tilt_mu_by_sentiment(mu, sentiment_bom)
-    assert mu_adj["ISUS11"] > mu["ISUS11"], "sentimento positivo deveria melhorar o retorno ajustado, mesmo com mu<0"
+
+    mu_aditivo = optimizer.tilt_mu_by_sentiment(mu, sentiment_bom, modo="aditivo")
+    assert mu_aditivo["ISUS11"] > mu["ISUS11"], "sentimento positivo deveria melhorar o retorno ajustado, mesmo com mu<0"
+
+    # e o contraponto: o multiplicativo faz exatamente o oposto com mu<0 —
+    # deixa registrado no teste qual é o erro que a forma aditiva evita
+    mu_multiplicativo = optimizer.tilt_mu_by_sentiment(mu, sentiment_bom, modo="multiplicativo")
+    assert mu_multiplicativo["ISUS11"] < mu["ISUS11"], "o braço A7 deveria reproduzir a inversão de sinal"
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +181,53 @@ def test_prompt_injection_no_motor_estruturado_llm():
     # ticker ou executa código
     assert -1.0 <= resultado.sentimento <= 1.0
     assert resultado.ticker == "BOVA11"  # não "vazou" pra outro ativo
+
+
+# ---------------------------------------------------------------------------
+# 10-13. Filtro de relevância por ticker
+#
+# Estes testes existem por causa de um erro que passou despercebido e
+# contaminou todo o resultado anterior: a keyword "emiss" (pensada pra
+# *emissões de carbono*) casava com "Emissão de Debêntures", e 96% do corpus
+# do ISUS11 era captação financeira. O tilt mais forte do modelo (0,30 no
+# ISUS11) foi calibrado em cima disso. Um teste de 3 linhas teria pego.
+
+def test_emissao_de_debentures_nao_e_texto_esg():
+    """O falso positivo que quebrou a calibração do ISUS11."""
+    from momentum_punch import text_filter
+
+    assert not text_filter.texto_e_relevante(
+        "Aprovação da Emissão e a Oferta Restrita das Debêntures", "ISUS11"
+    )
+    assert text_filter.texto_e_relevante(
+        "Companhia divulga metas de redução de emissões de carbono", "ISUS11"
+    )
+
+
+def test_conselho_fiscal_nao_e_politica_fiscal():
+    """O falso positivo que contaminou o corpus macro do BOVA11."""
+    from momentum_punch import text_filter
+
+    assert not text_filter.texto_e_relevante("Posse Membros Conselho Fiscal", "BOVA11")
+    assert text_filter.texto_e_relevante("Governo anuncia novo arcabouço fiscal", "BOVA11")
+
+
+def test_filtro_ignora_acento_e_caixa():
+    """'Governança', 'governanca' e 'GOVERNANÇA' têm que ser a mesma coisa —
+    senão a lista de keywords vira um campo minado de variação ortográfica."""
+    from momentum_punch import text_filter
+
+    for variante in ["Governança corporativa", "governanca corporativa", "GOVERNANÇA CORPORATIVA"]:
+        assert text_filter.texto_e_relevante(variante, "GOVE11"), variante
+
+
+def test_filtro_respeita_fronteira_de_palavra():
+    """Sem fronteira de palavra, 'solar' casa em 'consolar' e o corpus de
+    energia enche de texto aleatório."""
+    from momentum_punch import text_filter
+
+    assert text_filter.texto_e_relevante("Nova usina solar entra em operação", "REVE11")
+    assert not text_filter.texto_e_relevante("Diretoria busca consolar investidores", "REVE11")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,52 @@ Implementação dos 5 blocos do pipeline descrito no deck: Coleta → Score LLM 
 Suavização EMA → Vetor de retorno ajustado → Otimização Markowitz, com overlay
 de circuit breaker geopolítico.
 
+## Reproduzindo os números do relatório
+
+```bash
+python -m venv .venv && .venv\Scripts\activate
+pip install -r requirements.txt
+
+python fetch_prices_yfinance.py --years 5      # preço dos 4 ETFs (REVE11 começa em 15/07/2021)
+python collect_data.py --only bacen_sgs,bacen_focus
+python build_stress_index_focus.py             # índice de estresse (dispersão do Focus)
+python pull_cvm_historical.py                  # corpus textual (fatos relevantes)
+python build_sentiment_dataset.py --structured --source cvm \
+    --out data/processed/sentiment_scores_genai.csv   # scoring via LLM (~45 min, Ollama local)
+
+pytest test_suite.py                           # invariantes do software
+python run_ablations.py --periodo teste --scores data/processed/sentiment_scores_genai.csv
+python gerar_tabelas_relatorio.py --scores data/processed/sentiment_scores_genai.csv
+```
+
+Cada execução grava um **manifesto** (`data/processed/manifesto_*.json`) com
+sha256 de cada insumo, commit do código, modelo e hash do prompt — é o que
+permite conferir depois qual versão produziu qual número.
+
+As tabelas saem em `relatorio/tabelas/`, cada uma em dois formatos gerados do
+mesmo arquivo-fonte: `.tex` pra `\input{}` no Overleaf e `.csv` pro dashboard
+consumir. Nenhum número do relatório é digitado à mão, e painel e PDF não podem
+divergir — se divergirem, é porque alguém editou um dos dois manualmente.
+
+```bash
+streamlit run dashboard.py    # aba "Resultados finais" lê relatorio/tabelas/*.csv
+```
+
+### Protocolo de treino/teste
+
+`config.DATA_CORTE_TREINO_TESTE` (31/12/2024) separa calibração de avaliação.
+Os parâmetros são escolhidos com `validate_signal_matrix.py`, que só olha o
+treino, e o teste é avaliado **uma vez**. `--periodo {tudo,treino,teste}`
+controla o recorte; o backtest sempre roda contínuo e só as métricas são
+recortadas, pra o período de teste não perder o warm-up da covariância.
+
+### Sobre o Sharpe
+
+`Sharpe (excedente ao CDI)` é o índice de Sharpe de verdade, sobre `(r - CDI)`.
+`Retorno/Vol` é a razão crua, reportada em separado e rotulada como não sendo
+Sharpe. Com CDI a ~13% a.a., as duas diferem por um fator de 2 a 3 — confundir
+uma com a outra infla o resultado de forma substancial.
+
 ## Setup do LLM de sentimento (grátis — Ollama local)
 
 Sem custo de API. Rodando na sua RTX 3050 4GB:
@@ -49,14 +95,21 @@ antes de tirar qualquer conclusão pro desafio.
 
 ```
 momentum_punch/
-  config.py          # tickers, thresholds, parâmetros do modelo — mexa aqui primeiro
+  config.py          # tickers, thresholds, corte treino/teste — mexa aqui primeiro
   data_collection.py # coleta de notícias (RSS) e tweets (API do X, opcional)
-  sentiment.py        # scoring via Claude + suavização EMA + índice de estresse
-  optimizer.py         # Markowitz modificado (mu ajustado por sentimento) via cvxpy
-  risk_overlay.py      # circuit breaker: Risk-On / Risk-Off
-  backtest.py           # motor de backtest walk-forward + métricas + benchmark
-  synthetic_data.py     # gerador de dados sintéticos pra teste local
-main.py                 # orquestra o pipeline ponta a ponta
+  text_filter.py     # filtro de relevância por ticker (keywords + exclusões)
+  sentiment.py       # scoring GenAI estruturado + FinBERT + EMA + índice de estresse
+  optimizer.py       # Markowitz modificado, Black-Litterman, Ledoit-Wolf
+  risk_overlay.py    # circuit breaker: Risk-On / Risk-Off
+  backtest.py        # backtest walk-forward + métricas + os 5 benchmarks
+  manifesto.py       # procedência: hash dos insumos, commit, prompt, categoria
+  synthetic_data.py  # gerador de dados sintéticos pra teste local
+main.py                       # pipeline ponta a ponta (dados sintéticos)
+run_real_backtest.py          # backtest com dado real, por período
+run_ablations.py              # matriz A0–A12
+validate_signal_matrix.py     # validação estatística + calibração só no treino
+gerar_tabelas_relatorio.py    # tabelas .tex do relatório
+dashboard.py                  # painel Streamlit
 ```
 
 ## Coleta de dados (Etapa 1 — só puxar pra CSV)
@@ -113,11 +166,14 @@ Pontos de atenção específicos:
    com feeds RSS reais (ajuste a lista `NEWS_FEEDS` em `data_collection.py`).
    Pra tweets, defina `X_BEARER_TOKEN` (API paga do X/Twitter).
 
-4. **Sentiment score real**: em vez de `synthetic_data.generate_sentiment_scores()`,
-   monte um dict `{data: {ticker: [textos]}}` com o histórico coletado e rode
-   `sentiment.score_history(...)` — isso chama a API da Claude de verdade e
-   já devolve o DataFrame suavizado por EMA, no formato que `run_backtest()`
-   espera.
+4. **Sentiment score real**: monte um dict `{data: {ticker: [textos]}}` com o
+   histórico coletado e rode `sentiment.score_history_structured(...)` — o
+   motor GenAI, que devolve sentimento, relevância e confiança por ticker,
+   aplica o gate (`score = sentimento × relevância`) e entrega o DataFrame já
+   suavizado por EMA, no formato que `run_backtest()` espera. Roda local via
+   Ollama, sem custo de API. `sentiment.score_history()` é a alternativa
+   determinística via FinBERT-PT-BR, mais rápida mas sem relevância nem
+   confiança — não é o caminho avaliado no relatório.
 
 5. **Índice de estresse real**: mesma lógica, usando `sentiment.score_stress_index()`
    sobre os textos do dia relacionados a `config.STRESS_THEMES`.
@@ -147,9 +203,16 @@ python collect_data.py --only bacen_sgs   # inclui CDI (SGS 12) agora
 python run_real_backtest.py
 ```
 
-Cobertura confirmada no Yahoo Finance: BOVA11, ISUS11, GOVE11. REVE11 é mais
-novo — se vier vazio, pode faltar histórico lá; nesse caso considere puxar
-direto da corretora só pra esse ticker.
+Cobertura confirmada no Yahoo Finance para os quatro ETFs. O REVE11 tem
+histórico desde **15/07/2021** (data de início de negociação), então `--years 5`
+cobre a série inteira dele — o default de 3 anos descartava metade da amostra
+sem avisar, e a janela mais curta que ele produzia excluía justamente o período
+de 2021–2023, em que a estratégia teve seu pior desempenho relativo.
+
+`data/raw/benchmark_prices.csv` guarda o IVVB11, usado **só** como benchmark
+(comparador 40/40/20). Ele nunca entra no universo investível — manter os
+arquivos separados é o que impede um ativo de comparação de vazar pro
+otimizador.
 
 O `run_real_backtest.py` já lida com sentiment/stress index incompletos: se
 `data/processed/sentiment_scores.csv` ou `stress_index.csv` não existirem

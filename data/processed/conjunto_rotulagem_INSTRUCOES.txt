@@ -1,0 +1,17 @@
+COMO ROTULAR (preencha só as duas últimas colunas, deixe o resto intacto)
+
+  relevante_humano : 1 se o texto tem relação defensável com o TEMA do ticker
+                     indicado na linha; 0 se não tem.
+                     Julgue relação com o TEMA (governança, ESG, energia,
+                     macro), não com a empresa específica.
+
+  sentimento_humano: -1 negativo | 0 neutro/ambíguo | +1 positivo,
+                     PARA O TEMA/ATIVO indicado — não "a notícia é boa pra
+                     humanidade". Deixe em branco se relevante_humano = 0.
+
+Regras que evitam contaminar a medição:
+  - Não olhe as colunas de saída do modelo antes de rotular (elas nem estão
+    aqui, de propósito).
+  - Se ficar em dúvida entre neutro e um extremo, marque 0. A taxa de
+    ambiguidade é resultado, não problema.
+  - Não pule linhas: linha não rotulada vira dado faltante e reduz a amostra.

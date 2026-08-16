@@ -30,6 +30,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from momentum_punch import config
+
 st.set_page_config(page_title="Momentum Punch — Dashboard", layout="wide", page_icon="■")
 
 # ---------------------------------------------------------------------------
@@ -280,9 +282,89 @@ st.sidebar.caption("Documento/dashboard de pesquisa. Não constitui recomendaç�
 # ---------------------------------------------------------------------------
 # Conteúdo principal — abas
 
-tab_live, tab_news, tab_sent, tab_bt, tab_abl = st.tabs([
-    "Decisão ao vivo", "Notícias", "Sentiment", "Backtest", "Ablação"
+tab_res, tab_live, tab_news, tab_sent, tab_bt, tab_abl = st.tabs([
+    "Resultados finais", "Decisão ao vivo", "Notícias", "Sentiment", "Backtest", "Ablação"
 ])
+
+# --- Resultados finais -----------------------------------------------------
+# Lê os MESMOS CSVs que geram os .tex do relatório (relatorio/tabelas/), pra o
+# painel e o PDF não poderem divergir. Nada aqui é recalculado ou digitado.
+with tab_res:
+    TAB_DIR = "relatorio/tabelas"
+    perf_teste = _carrega_csv_seguro(f"{TAB_DIR}/performance_teste.csv")
+    perf_completo = _carrega_csv_seguro(f"{TAB_DIR}/performance_completo.csv")
+    perf_treino = _carrega_csv_seguro(f"{TAB_DIR}/performance_treino.csv")
+    significancia = _carrega_csv_seguro(f"{TAB_DIR}/significancia.csv")
+    cobertura = _carrega_csv_seguro(f"{TAB_DIR}/cobertura_corpus.csv")
+
+    if perf_teste is None:
+        st.info("Rode `python gerar_tabelas_relatorio.py --scores data/processed/sentiment_scores_genai.csv` "
+                "pra gerar as tabelas do relatório.")
+    else:
+        col_sharpe = "Sharpe (excedente ao CDI)"
+
+        def _linha(df, nome="Momentum Punch"):
+            achado = df[df["Carteira"] == nome]
+            return achado.iloc[0] if len(achado) else None
+
+        mp_teste, mp_completo = _linha(perf_teste), _linha(perf_completo)
+
+        st.subheader("Período de teste congelado (a partir de 31/12/2024)")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Sharpe (excedente ao CDI)", mp_teste[col_sharpe])
+        c2.metric("CAGR", mp_teste["CAGR"])
+        c3.metric("Max drawdown", mp_teste["Max drawdown"])
+
+        if mp_completo is not None:
+            st.warning(
+                f"**Na janela completa de 5 anos o resultado se inverte:** Sharpe "
+                f"{mp_completo[col_sharpe]} e CAGR {mp_completo['CAGR']}, contra "
+                f"{_linha(perf_completo, '100% BOVA11')[col_sharpe]} do BOVA11 e "
+                f"{_linha(perf_completo, '60% BOVA11 / 40% CDI')[col_sharpe]} do 60/40. "
+                "O desempenho do período de teste é dependente de regime, não uma propriedade "
+                "estável da estratégia — as duas tabelas precisam ser lidas juntas."
+            )
+
+        st.markdown("---")
+        periodo = st.radio("Período", ["Teste", "Treino", "Completo"], horizontal=True, key="res_periodo")
+        st.dataframe({"Teste": perf_teste, "Treino": perf_treino, "Completo": perf_completo}[periodo],
+                     use_container_width=True, hide_index=True)
+        st.caption("Sharpe e Sortino são calculados sobre o retorno EXCEDENTE ao CDI. "
+                   "A razão retorno/volatilidade crua, frequentemente reportada como 'Sharpe', "
+                   "é cerca de 2,5x maior nesta janela e não aparece aqui.")
+
+        if significancia is not None:
+            st.markdown("---")
+            st.subheader("A tese se sustenta?")
+            st.dataframe(significancia, use_container_width=True, hide_index=True)
+            st.caption(
+                "Teste PAREADO: as configurações comparadas têm correlação diária ~0,998, então a "
+                "série de diferenças é estimada com precisão muito maior que os Sharpes isolados. "
+                "A linha A4−A3 é o teste da tese — mede o que o módulo textual acrescenta sobre o "
+                "overlay de risco rodando sozinho."
+            )
+
+        if cobertura is not None:
+            st.markdown("---")
+            st.subheader("Por que a tese não pôde ser testada em todo o universo")
+            st.dataframe(cobertura, use_container_width=True, hide_index=True)
+            st.caption(
+                "Fatos relevantes da CVM, após o filtro de relevância. O REVE11 replica um índice "
+                "de empresas americanas, fora da jurisdição da CVM — para ele a fonte é "
+                "estruturalmente inadequada, não apenas escassa."
+            )
+
+        st.markdown("---")
+        tilts = config.SENTIMENT_TILT_STRENGTH_POR_TICKER
+        if all(v == 0 for v in tilts.values()):
+            st.error(
+                "**Calibração congelada: tilt de sentimento = 0 em todos os ativos.** Nenhum "
+                "ativo passou no critério definido no treino (IC coerente entre horizontes, "
+                "positivo e de magnitude relevante). A estratégia avaliada equivale, na prática, "
+                "ao overlay de risco isolado. Ver o histórico em `momentum_punch/config.py`."
+            )
+        else:
+            st.success(f"Tilt de sentimento calibrado no treino: {tilts}")
 
 # --- Decisão ao vivo -------------------------------------------------------
 with tab_live:
@@ -358,11 +440,16 @@ with tab_bt:
     if curvas is None or curvas.empty:
         st.info("Nenhum backtest rodado ainda. Use os botões **Rodar backtest** na sidebar.")
     else:
+        # "Benchmark" é alias do benchmark escolhido na execução e aparece
+        # nomeado logo abaixo — plotar os dois desenharia a mesma linha 2x
+        colunas_plot = [c for c in curvas.columns if c != "Benchmark"]
         fig_bt = go.Figure()
-        for i, col in enumerate(curvas.columns):
+        for i, col in enumerate(colunas_plot):
+            destaque = col == "Momentum Punch"
             fig_bt.add_trace(go.Scatter(
                 x=curvas.index, y=(curvas[col] - 1) * 100, name=col, mode="lines",
-                line=dict(color=PALETA[i % len(PALETA)], width=2),
+                line=dict(color=PALETA[i % len(PALETA)], width=3 if destaque else 1.5,
+                          dash=None if destaque else "dot"),
             ))
         fig_bt.update_layout(**PLOTLY_THEME, height=440, yaxis_title="Retorno acumulado (%)")
         st.plotly_chart(fig_bt, use_container_width=True, key="bt_curve")
@@ -382,6 +469,8 @@ with tab_abl:
     else:
         st.dataframe(ablacao, use_container_width=True, hide_index=True)
         st.caption(
-            "A0 = baseline puro | A2 = só sentimento | A3 = só circuit breaker | A4 = sistema completo. "
-            "Compare A2 vs A0 (efeito isolado do sentimento) e A4 vs A3 (sentimento ajuda por cima do circuit breaker?)."
+            "Cada par isola um eixo: A1/A2 (EMA) · A2/A4 (circuit breaker) · A5/A6 (gate de relevância) · "
+            "A7/A8 (tilt multiplicativo vs aditivo) · A9/A10 (custos) · A11/A12 (covariância). "
+            "A comparação que testa a TESE é A4 vs A3: se o completo não supera o circuit breaker sozinho, "
+            "o ganho não veio do texto."
         )

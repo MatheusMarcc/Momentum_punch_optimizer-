@@ -1,0 +1,24 @@
+\begin{table}[htbp]
+\centering
+\caption{Matriz de ablação A0–A12.}
+\label{tab:ablacoes}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+config & descricao & cagr & sharpe\_excedente\_cdi & sortino & calmar & max\_drawdown & exposicao\_media & custo\_acumulado \\
+\midrule
+A0\_baseline & sem sentimento, sem risk-off & 27.25\% & 0.75 & 1.23 & 3.14 & -8.67\% & 100.0\% & nan \\
+A1\_sentimento\_bruto & sentimento sem EMA & 27.25\% & 0.75 & 1.23 & 3.14 & -8.67\% & 100.0\% & nan \\
+A2\_sentimento\_ema & sentimento com EMA & 27.25\% & 0.75 & 1.23 & 3.14 & -8.67\% & 100.0\% & nan \\
+A3\_so\_circuit\_breaker & só risk-off & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A4\_completo & sentimento + risk-off & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A5\_sem\_relevancia & sem gate de relevância & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A6\_com\_relevancia & com gate de relevância & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A7\_tilt\_multiplicativo & tilt multiplicativo & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A8\_alpha\_aditivo & tilt aditivo & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A9\_sem\_custos & sem custo de transação & 33.19\% & 1.19 & 2.06 & 4.68 & -7.09\% & 83.3\% & nan \\
+A10\_com\_custos & com custo (10 bps) & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A11\_cov\_amostral & covariância amostral & 30.05\% & 1.01 & 1.75 & 4.0 & -7.51\% & 83.3\% & nan \\
+A12\_cov\_ledoit\_wolf & covariância Ledoit-Wolf & 30.20\% & 1.02 & 1.76 & 4.04 & -7.48\% & 83.3\% & nan \\
+\bottomrule
+\end{tabular}
+\end{table}

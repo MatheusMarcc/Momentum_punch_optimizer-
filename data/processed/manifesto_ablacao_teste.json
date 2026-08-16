@@ -1,0 +1,293 @@
+{
+  "experimento": "ablacao_A0_A12_teste",
+  "categoria_da_evidencia": "VERIFICADO",
+  "quando": "2026-08-16T14:07:02",
+  "codigo": {
+    "commit": "d726ef6aded4939560f2d2a2694b44241620b320",
+    "branch": "marcG-branch",
+    "arvore_suja": true,
+    "arquivos_modificados": [
+      "EADME.md",
+      "__pycache__/build_sentiment_dataset.cpython-313.pyc",
+      "__pycache__/run_real_backtest.cpython-313.pyc",
+      "build_sentiment_dataset.py",
+      "collect_data.py",
+      "dashboard.py",
+      "data/decisao_atual.json",
+      "data/processed/ablation_results.csv",
+      "data/processed/equity_curves.csv",
+      "data/processed/sentiment_scores.csv",
+      "data/processed/stress_index.csv",
+      "data/processed/validate_signal_matrix.csv",
+      "data/raw/bacen_focus.csv",
+      "data/raw/bacen_sgs.csv",
+      "data/raw/cvm_fatos_relevantes.csv",
+      "data/raw/etf_prices.csv",
+      "data/raw/rss_news.csv",
+      "gdelt_historical_pull.py",
+      "momentum_punch/__pycache__/backtest.cpython-313.pyc",
+      "momentum_punch/__pycache__/config.cpython-313.pyc",
+      "momentum_punch/__pycache__/optimizer.cpython-313.pyc",
+      "momentum_punch/__pycache__/sentiment.cpython-313.pyc",
+      "momentum_punch/backtest.py",
+      "momentum_punch/config.py",
+      "momentum_punch/optimizer.py",
+      "momentum_punch/sentiment.py",
+      "run_ablations.py",
+      "run_diagnostics.py",
+      "run_live.py",
+      "run_real_backtest.py",
+      "test_suite.py",
+      "validate_signal.py",
+      "validate_signal_matrix.py",
+      ".gitignore",
+      "avaliar_classificador.py",
+      "data/processed/ablation_results_contrafactual.csv",
+      "data/processed/conjunto_rotulagem.csv",
+      "data/processed/conjunto_rotulagem_INSTRUCOES.txt",
+      "data/processed/manifesto_ablacao_teste.json",
+      "data/processed/manifesto_backtest_teste.json",
+      "data/processed/sentiment_scores_genai.csv",
+      "data/processed/sentiment_scores_genai_confianca.csv",
+      "data/processed/sentiment_scores_genai_raw.csv",
+      "data/processed/sentiment_scores_genai_relevancia.csv",
+      "data/processed/tabelas/",
+      "data/raw/benchmark_prices.csv",
+      "gerar_tabelas_relatorio.py",
+      "momentum_punch/manifesto.py",
+      "momentum_punch/text_filter.py",
+      "montar_conjunto_rotulagem.py"
+    ]
+  },
+  "ambiente": {
+    "python": "3.13.7",
+    "so": "Windows-11-10.0.26200-SP0"
+  },
+  "entradas": {
+    "precos": {
+      "caminho": "data/raw/etf_prices.csv",
+      "sha256": "bd9df2784b512afe7a168f857dd44b1b847b855fd8c7cdcc27a7c1fd4bfd3c46"
+    },
+    "cdi": {
+      "caminho": "data/raw/bacen_sgs.csv",
+      "sha256": "9f8350601627200f8ce71942328037145a2560c8f845af4b23aa84c42d6d47af"
+    },
+    "sentiment": {
+      "caminho": "data/processed/sentiment_scores_genai.csv",
+      "sha256": "f9edb1ab92c43de46037597368adb08df75dff3a2bc114500b56c024152d589f"
+    },
+    "sentiment_bruto": {
+      "caminho": "data/processed/sentiment_scores_genai_raw.csv",
+      "sha256": "47d5ded5d40c8f523b1f899a94bf0d1cc62e9bfcec36c6c2e90b847a6cdd052e"
+    },
+    "relevancia": {
+      "caminho": "data/processed/sentiment_scores_genai_relevancia.csv",
+      "sha256": "b90ace77960137f70eb0353ecd95b65e2fb831155d9d4fb8b4894905eff72e79"
+    },
+    "stress": {
+      "caminho": "data/processed/stress_index.csv",
+      "sha256": "0a46266491bbb043b045fc6ba473151b31f0bb9bdffd6944f353dcd115cc1ccd"
+    }
+  },
+  "parametros_do_modelo": {
+    "universo": [
+      "ISUS11",
+      "GOVE11",
+      "REVE11",
+      "BOVA11"
+    ],
+    "ativo_livre_de_risco": "CDI",
+    "rebalanceamento": "W",
+    "janela_covariancia_dias": 60,
+    "aversao_ao_risco": 3.0,
+    "peso_maximo_por_etf": 0.5,
+    "peso_minimo_por_etf": 0.0,
+    "ema_halflife_dias": 5,
+    "limiar_estresse": 0.6,
+    "exposicao_maxima_risk_off": 0.3,
+    "tilt_por_ticker": {
+      "ISUS11": 0.0,
+      "GOVE11": 0.0,
+      "REVE11": 0.0,
+      "BOVA11": 0.0
+    },
+    "tilt_base": 0.0,
+    "corte_treino_teste": "2024-12-31"
+  },
+  "parametros_da_execucao": {
+    "periodo": "teste",
+    "mu_method": "tilt_linear",
+    "custo_padrao_bps": 10.0,
+    "configs": [
+      "A0_baseline",
+      "A1_sentimento_bruto",
+      "A2_sentimento_ema",
+      "A3_so_circuit_breaker",
+      "A4_completo",
+      "A5_sem_relevancia",
+      "A6_com_relevancia",
+      "A7_tilt_multiplicativo",
+      "A8_alpha_aditivo",
+      "A9_sem_custos",
+      "A10_com_custos",
+      "A11_cov_amostral",
+      "A12_cov_ledoit_wolf"
+    ]
+  },
+  "llm": {
+    "provider_estruturado": "ollama",
+    "modelo": "qwen2.5:3b-instruct-q4_K_M",
+    "temperatura": 0.1,
+    "prompt_template_sha256": "9cc77a9e3cb074e67b1257f59618a4dbc00579dabcfd7735b6e9809a6835482d",
+    "modelo_finbert": "lucas-leme/FinBERT-PT-BR"
+  },
+  "metricas": {
+    "A0_baseline": {
+      "config": "A0_baseline",
+      "descricao": "sem sentimento, sem risk-off",
+      "cagr": "27.25%",
+      "sharpe_excedente_cdi": "0.75",
+      "sortino": "1.23",
+      "calmar": "3.14",
+      "max_drawdown": "-8.67%",
+      "exposicao_media": "100.0%",
+      "custo_acumulado": "n/a"
+    },
+    "A1_sentimento_bruto": {
+      "config": "A1_sentimento_bruto",
+      "descricao": "sentimento sem EMA",
+      "cagr": "27.25%",
+      "sharpe_excedente_cdi": "0.75",
+      "sortino": "1.23",
+      "calmar": "3.14",
+      "max_drawdown": "-8.67%",
+      "exposicao_media": "100.0%",
+      "custo_acumulado": "n/a"
+    },
+    "A2_sentimento_ema": {
+      "config": "A2_sentimento_ema",
+      "descricao": "sentimento com EMA",
+      "cagr": "27.25%",
+      "sharpe_excedente_cdi": "0.75",
+      "sortino": "1.23",
+      "calmar": "3.14",
+      "max_drawdown": "-8.67%",
+      "exposicao_media": "100.0%",
+      "custo_acumulado": "n/a"
+    },
+    "A3_so_circuit_breaker": {
+      "config": "A3_so_circuit_breaker",
+      "descricao": "só risk-off",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A4_completo": {
+      "config": "A4_completo",
+      "descricao": "sentimento + risk-off",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A5_sem_relevancia": {
+      "config": "A5_sem_relevancia",
+      "descricao": "sem gate de relevância",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A6_com_relevancia": {
+      "config": "A6_com_relevancia",
+      "descricao": "com gate de relevância",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A7_tilt_multiplicativo": {
+      "config": "A7_tilt_multiplicativo",
+      "descricao": "tilt multiplicativo",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A8_alpha_aditivo": {
+      "config": "A8_alpha_aditivo",
+      "descricao": "tilt aditivo",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A9_sem_custos": {
+      "config": "A9_sem_custos",
+      "descricao": "sem custo de transação",
+      "cagr": "33.19%",
+      "sharpe_excedente_cdi": "1.19",
+      "sortino": "2.06",
+      "calmar": "4.68",
+      "max_drawdown": "-7.09%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A10_com_custos": {
+      "config": "A10_com_custos",
+      "descricao": "com custo (10 bps)",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A11_cov_amostral": {
+      "config": "A11_cov_amostral",
+      "descricao": "covariância amostral",
+      "cagr": "30.05%",
+      "sharpe_excedente_cdi": "1.01",
+      "sortino": "1.75",
+      "calmar": "4.00",
+      "max_drawdown": "-7.51%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    },
+    "A12_cov_ledoit_wolf": {
+      "config": "A12_cov_ledoit_wolf",
+      "descricao": "covariância Ledoit-Wolf",
+      "cagr": "30.20%",
+      "sharpe_excedente_cdi": "1.02",
+      "sortino": "1.76",
+      "calmar": "4.04",
+      "max_drawdown": "-7.48%",
+      "exposicao_media": "83.3%",
+      "custo_acumulado": "n/a"
+    }
+  },
+  "saidas": [
+    "data/processed/ablation_results.csv"
+  ],
+  "observacoes": null
+}

@@ -18,6 +18,7 @@ import argparse
 
 import pandas as pd
 
+from momentum_punch import config
 from validate_signal import (
     compute_forward_returns,
     train_test_split_temporal,
@@ -27,10 +28,11 @@ from validate_signal import (
 )
 
 
-def run_matrix(tickers: list[str], horizons: list[int], prices_csv: str, price_target: str | None):
+def run_matrix(tickers: list[str], horizons: list[int], prices_csv: str, price_target: str | None,
+               scores_csv: str = "data/processed/sentiment_scores.csv"):
     prices_long = pd.read_csv(prices_csv, parse_dates=["data"])
     prices_wide = prices_long.pivot(index="data", columns="ticker", values="close")
-    scores = pd.read_csv("data/processed/sentiment_scores.csv", index_col=0, parse_dates=True)
+    scores = pd.read_csv(scores_csv, index_col=0, parse_dates=True)
 
     rows = []
     for ticker in tickers:
@@ -105,6 +107,50 @@ def run_matrix(tickers: list[str], horizons: list[int], prices_csv: str, price_t
     resultado.to_csv("data/processed/validate_signal_matrix.csv", index=False)
     print(f"\nSalvo em data/processed/validate_signal_matrix.csv")
 
+    # ---- Calibração do tilt: SÓ COM TREINO ---------------------------------
+    # A recomendação abaixo olha exclusivamente as colunas de TREINO. As de
+    # teste estão na tabela acima como diagnóstico posterior, mas usá-las pra
+    # escolher o tilt é o vazamento que invalidava a calibração anterior: os
+    # kappas do config foram fixados olhando a amostra inteira, e depois o
+    # backtest foi avaliado nessa mesma amostra.
+    print(f"\n--- Calibração recomendada (olhando SÓ treino, corte {config.DATA_CORTE_TREINO_TESTE}) ---")
+    print("Regra, nesta ordem:")
+    print("  1. amostra suficiente no treino (n >= 100);")
+    print("  2. direção do IC coerente entre horizontes;")
+    print("  3. IC POSITIVO — a hipótese do projeto é direcional (sentimento bom")
+    print("     -> retorno maior). IC negativo coerente NÃO vira tilt negativo:")
+    print("     inverter o sinal depois de ver o dado é escolher a direção pelo")
+    print("     resultado, e uma estratégia contrária a notícia precisaria de")
+    print("     hipótese própria, declarada antes. IC negativo -> tilt 0 e");
+    print("     'hipótese não sustentada para este ativo';")
+    print("  4. magnitude relevante (IC >= 0.03).\n")
+
+    for ticker in resultado["ticker"].unique():
+        linhas_t = resultado[resultado["ticker"] == ticker].dropna(subset=["IC_treino"])
+        if linhas_t.empty:
+            print(f"  {ticker:8s} tilt=0.00   sem observação suficiente no treino")
+            continue
+        ics = linhas_t["IC_treino"]
+        n_obs = int(linhas_t["n_treino"].max())
+        coerente = (ics > 0).all() or (ics < 0).all()
+        ic_medio = ics.mean()
+
+        if n_obs < 100:
+            veredito, tilt = f"amostra pequena no treino (n={n_obs})", 0.0
+        elif not coerente:
+            veredito, tilt = "direção do IC troca entre horizontes", 0.0
+        elif ic_medio < 0:
+            veredito, tilt = f"IC coerente mas NEGATIVO ({ic_medio:+.3f}) — contradiz a hipótese", 0.0
+        elif ic_medio < 0.03:
+            veredito, tilt = f"coerente e positivo, mas fraco (IC {ic_medio:+.3f})", 0.0
+        else:
+            tilt = round(min(0.30, ic_medio * 3), 2)
+            veredito = f"coerente, positivo, IC médio {ic_medio:+.3f}, n={n_obs}"
+        print(f"  {ticker:8s} tilt={tilt:.2f}   {veredito}")
+
+    print("\nCopie os valores acima pro config.SENTIMENT_TILT_STRENGTH_POR_TICKER e")
+    print("CONGELE antes de rodar o período de teste. Não reajuste depois de ver o teste.")
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -112,9 +158,10 @@ def main():
     parser.add_argument("--horizons", type=int, nargs="+", default=[1, 3, 5, 10])
     parser.add_argument("--prices-csv", default="data/raw/etf_prices.csv")
     parser.add_argument("--price-target", default=None, help="fixa um único ativo-alvo pra todos (default: cada ticker testa contra o próprio retorno)")
+    parser.add_argument("--scores", default="data/processed/sentiment_scores.csv")
     args = parser.parse_args()
 
-    run_matrix(args.tickers, args.horizons, args.prices_csv, args.price_target)
+    run_matrix(args.tickers, args.horizons, args.prices_csv, args.price_target, args.scores)
 
 
 if __name__ == "__main__":

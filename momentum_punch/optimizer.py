@@ -19,14 +19,42 @@ import pandas as pd
 from . import config
 
 
-def historical_mu_sigma(returns: pd.DataFrame, lookback: int = config.COV_LOOKBACK_DAYS):
+def historical_mu_sigma(
+    returns: pd.DataFrame,
+    lookback: int = config.COV_LOOKBACK_DAYS,
+    cov_estimator: str = "amostral",
+):
     """
     Estima retorno esperado (mu, anualizado) e matriz de covariância (Sigma, anualizada)
     a partir de uma janela trailing de retornos diários dos ETFs (colunas = tickers).
+
+    cov_estimator (eixo A11/A12 da matriz de ablação):
+      "amostral" — covariância amostral pura. Com 60 dias e 4 ativos quase
+        colineares, é conhecidamente mal-condicionada: pequenas variações de
+        janela viram grandes variações de peso.
+      "ledoit_wolf" — shrinkage de Ledoit-Wolf [6]: puxa a amostral na direção
+        de um alvo estruturado (variância média na diagonal, correlação zero
+        fora), com intensidade estimada dos próprios dados. Reduz o erro de
+        estimação que o Markowitz amplifica.
+      "ewma" — covariância com decaimento exponencial: pondera dias recentes
+        mais que antigos, respondendo mais rápido a mudança de regime.
     """
     window = returns.tail(lookback)
     mu = window.mean() * 252
-    sigma = window.cov() * 252
+
+    if cov_estimator == "amostral":
+        sigma = window.cov() * 252
+    elif cov_estimator == "ledoit_wolf":
+        from sklearn.covariance import LedoitWolf
+        lw = LedoitWolf().fit(window.values)
+        sigma = pd.DataFrame(lw.covariance_ * 252, index=window.columns, columns=window.columns)
+    elif cov_estimator == "ewma":
+        # halflife em dias úteis; usa a janela inteira, pesando o recente mais
+        sigma = window.ewm(halflife=lookback / 3).cov().iloc[-len(window.columns):] * 252
+        sigma.index = sigma.index.droplevel(0)
+    else:
+        raise ValueError(f"cov_estimator desconhecido: {cov_estimator}")
+
     return mu, sigma
 
 
@@ -105,21 +133,29 @@ def black_litterman_posterior(
     return pd.Series(posterior, index=mu_prior.index)
 
 
-def tilt_mu_by_sentiment(mu: pd.Series, sentiment_scores: pd.Series) -> pd.Series:
+def tilt_mu_by_sentiment(mu: pd.Series, sentiment_scores: pd.Series, modo: str = "aditivo") -> pd.Series:
     """
-    Aplica o tilt do Sentiment Alpha Score sobre o retorno esperado histórico,
-    de forma ADITIVA (mu + kappa*sentiment), não multiplicativa. O motivo:
-    tilt multiplicativo (mu * (1+kappa*sentiment)) inverte o efeito quando o
-    mu histórico é negativo — sentimento positivo, nesse caso, deixaria o
-    retorno esperado AINDA MAIS negativo, o oposto do que deveria acontecer.
-    Aditivo não tem esse problema: o deslocamento não depende do sinal de mu.
+    Aplica o tilt do Sentiment Alpha Score sobre o retorno esperado histórico.
+
+    modo="aditivo" (padrão, mu + kappa*s): é o correto. O multiplicativo
+    (mu * (1 + kappa*s)) inverte o efeito quando o mu histórico é negativo —
+    sentimento positivo, nesse caso, deixaria o retorno esperado AINDA MAIS
+    negativo, o oposto do que deveria acontecer. No aditivo o deslocamento não
+    depende do sinal de mu.
+
+    modo="multiplicativo" existe só como braço A7 da matriz de ablação, pra
+    MEDIR o tamanho desse erro em vez de afirmá-lo. Não use em produção.
     """
     sentiment_scores = sentiment_scores.reindex(mu.index).fillna(0.0)
     kappas = pd.Series(
         [config.SENTIMENT_TILT_STRENGTH_POR_TICKER.get(t, config.SENTIMENT_TILT_STRENGTH_BASE) for t in mu.index],
         index=mu.index,
     )
-    return mu + kappas * sentiment_scores
+    if modo == "aditivo":
+        return mu + kappas * sentiment_scores
+    if modo == "multiplicativo":
+        return mu * (1 + kappas * sentiment_scores)
+    raise ValueError(f"modo de tilt desconhecido: {modo}")
 
 
 def optimize_weights(

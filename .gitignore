@@ -1,0 +1,21 @@
+# Ambiente virtual — centenas de MB, reconstruível com requirements.txt
+.venv/
+venv/
+
+# Bytecode: gerado pelo interpretador, muda a cada execução e polui o diff
+__pycache__/
+*.py[cod]
+
+# Cache de ferramentas
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Logs e parciais de execução longa (o resultado final é versionado, o
+# rascunho intermediário não)
+data/processed/_*.log
+data/processed/*_parcial*.csv
+data/daily_pipeline.log
+
+# Sistema operacional
+Thumbs.db
+.DS_Store

@@ -36,18 +36,28 @@ import pandas as pd
 import statsmodels.api as sm
 from scipy.stats import spearmanr
 
+from momentum_punch import config
+
 
 def compute_forward_returns(prices: pd.Series, horizon: int) -> pd.Series:
     """Retorno futuro acumulado de t até t+horizon (o que o sinal em t deveria prever)."""
     return prices.shift(-horizon) / prices - 1
 
 
-def train_test_split_temporal(df: pd.DataFrame, train_frac: float = 0.7) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split por TEMPO, não aleatório — os primeiros train_frac% viram treino,
-    o resto (mais recente) vira teste. Embaralhar aleatoriamente aqui seria
-    vazamento: o modelo "veria" padrões do futuro durante o treino."""
-    corte = int(len(df) * train_frac)
-    return df.iloc[:corte], df.iloc[corte:]
+def train_test_split_temporal(df: pd.DataFrame, data_corte: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Split por TEMPO, não aleatório — tudo até `data_corte` é treino, o resto é
+    teste. Embaralhar aleatoriamente aqui seria vazamento: o modelo "veria"
+    padrões do futuro durante o treino.
+
+    O corte é uma DATA FIXA (config.DATA_CORTE_TREINO_TESTE), não uma fração.
+    Com fração, cada série ganhava um corte diferente conforme seu tamanho, e
+    o "teste" de um sinal não era o mesmo período do "teste" de outro nem do
+    backtest final — o que torna impossível dizer que os parâmetros foram
+    congelados antes do teste.
+    """
+    corte = pd.Timestamp(data_corte or config.DATA_CORTE_TREINO_TESTE)
+    return df.loc[df.index <= corte], df.loc[df.index > corte]
 
 
 def information_coefficient(sinal: pd.Series, retorno_futuro: pd.Series) -> tuple[float, float, int]:

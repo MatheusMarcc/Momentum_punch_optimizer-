@@ -59,14 +59,27 @@ def check_ollama_online():
 
 
 def check_sentiment_scoring():
+    """Testa o motor de PRODUÇÃO (estruturado, via LLM), não o FinBERT — antes
+    isso chamava score_texts_for_ticker sob o rótulo "Ollama de verdade", o que
+    era duplamente errado: aquele caminho é FinBERT (não passa perto do Ollama)
+    e não é o motor que gera os números do relatório."""
     from momentum_punch import sentiment
 
-    resultado = sentiment.score_texts_for_ticker(
+    r = sentiment.score_texts_structured(
         "BOVA11", ["Ibovespa fecha em alta com otimismo do mercado"], provider="ollama"
     )
-    if resultado.rationale.startswith("[fallback"):
-        raise RuntimeError(f"LLM respondeu mas caiu no fallback: {resultado.rationale}")
-    return f"score={resultado.score}, rationale='{resultado.rationale[:50]}'"
+    if r.is_fallback:
+        raise RuntimeError(f"LLM respondeu mas caiu no fallback: {r.justificativa}")
+    return f"sentimento={r.sentimento:+.2f}, relevancia={r.relevancia:.2f}, confianca={r.confianca:.2f}"
+
+
+def check_finbert_opcional():
+    """FinBERT é caminho alternativo (baixa latência), não o avaliado. Depende de
+    torch+transformers, que são pesados — a ausência é informação, não falha."""
+    from momentum_punch import sentiment
+
+    r = sentiment.score_texts_for_ticker("BOVA11", ["Ibovespa fecha em alta"])
+    return f"score={r.score:+.3f}"
 
 
 def check_bacen_sgs():
@@ -139,7 +152,9 @@ def check_synthetic_backtest():
     result = backtest.run_backtest(prices, cdi, sentiment_scores, stress, benchmark="60_40")
     if result["equity_curve"].empty:
         raise RuntimeError("equity_curve veio vazia")
-    return f"backtest sintético rodou, {len(result['equity_curve'])} dias, Sharpe={result['metrics']['Momentum Punch']['Sharpe']}"
+    sharpe = result["metrics"]["Momentum Punch"]["Sharpe (excedente ao CDI)"]
+    return (f"backtest sintético rodou, {len(result['equity_curve'])} dias, "
+            f"Sharpe(exc. CDI)={sharpe} — número SINTÉTICO, não é evidência da estratégia")
 
 
 def check_reddit_credenciais():
@@ -180,7 +195,15 @@ def main():
 
     check("Dependências Python", check_dependencias)
     check("Ollama online + modelo instalado", check_ollama_online)
-    check("Sentiment scoring (Ollama de verdade)", check_sentiment_scoring)
+    check("Sentiment GenAI estruturado (motor de produção)", check_sentiment_scoring)
+    # FinBERT é caminho alternativo: torch/transformers ausentes viram PULADO,
+    # não FALHOU — senão o diagnóstico sai com código 1 por falta de uma
+    # dependência de 2,5 GB que o caminho avaliado nem usa
+    try:
+        import torch, transformers  # noqa: F401
+        check("FinBERT-PT-BR (alternativa opcional)", check_finbert_opcional)
+    except ImportError:
+        skip("FinBERT-PT-BR", "torch/transformers não instalados — caminho alternativo, não o avaliado")
     check("Bacen SGS (CDI)", check_bacen_sgs)
     check("Bacen Focus (Expectativas)", check_bacen_focus)
     check("RSS notícias (InfoMoney)", check_rss_news)
@@ -208,7 +231,11 @@ def main():
     falhou = sum(1 for _, s, _ in RESULTADOS if s == "FALHOU")
     pulado = sum(1 for _, s, _ in RESULTADOS if s == "PULADO")
     for nome, status, detalhe in RESULTADOS:
-        marcador = {"OK": "✓", "FALHOU": "✗", "PULADO": "-"}[status]
+        # marcadores em ASCII: com a saída redirecionada pra arquivo no Windows,
+        # o console usa cp1252 e "✓"/"✗" estouram UnicodeEncodeError — o
+        # diagnóstico morria justamente ao imprimir o resumo, que é a parte que
+        # importa quando se roda isso num log
+        marcador = {"OK": "[ok]", "FALHOU": "[FALHOU]", "PULADO": "[--]"}[status]
         print(f"  {marcador} {nome}: {status}")
     print(f"\n{ok} OK | {falhou} falharam | {pulado} pulados")
 

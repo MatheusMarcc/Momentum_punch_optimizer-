@@ -22,19 +22,18 @@ import os
 
 import pandas as pd
 
-from momentum_punch import config, sentiment
+from momentum_punch import config, sentiment, text_filter
 
 
 def _filtra_por_ticker(textos: list[str], ticker: str) -> list[str]:
-    """Mantém só os textos que citam alguma palavra-chave do ticker (config.TICKER_KEYWORDS).
+    """Mantém só os textos relevantes pro ticker — ver momentum_punch/text_filter.py
+    pra lógica (normalização de acento, fronteira de palavra, exclusões) e pro
+    registro dos falsos positivos que motivaram cada regra.
+
     Se nenhum texto do dia bater pra um ticker específico (dia sem notícia
-    relevante pra ele), a lista fica vazia e o LLM recebe isso explicitamente
-    — não inventa sentimento do nada, o score.py já trata texto vazio como
-    '(nenhum texto coletado hoje)'."""
-    keywords = config.TICKER_KEYWORDS.get(ticker, [])
-    if not keywords:
-        return textos
-    return [t for t in textos if any(kw in t.lower() for kw in keywords)]
+    relevante pra ele), a lista fica vazia e o scoring recebe isso
+    explicitamente — não inventa sentimento do nada."""
+    return text_filter.filtrar_por_ticker(textos, ticker)
 
 
 def load_daily_texts(
@@ -208,11 +207,22 @@ def main():
 
     texts_by_date_ticker = load_daily_texts(args.rss_csv, source=args.source, gdelt_csv=args.gdelt_csv)
 
+    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+
+    # No motor estruturado o score CRU (sentimento*relevância, sem EMA) é
+    # persistido à parte, e é ele que controla o retomar: o arquivo final
+    # (args.out) guarda o score JÁ suavizado, e EMA de um pedaço concatenado
+    # com EMA de outro pedaço não é igual ao EMA da série inteira. Guardando o
+    # cru, o EMA é sempre recalculado sobre tudo no fim.
+    raw_path = args.out.replace(".csv", "_raw.csv") if args.structured else None
+    controle_path = raw_path if args.structured else args.out
+
     # pula datas já escoradas em execuções anteriores — importante pra rodar isso
     # como job diário sem reprocessar o histórico inteiro toda vez (mais lento
-    # à toa, mesmo sem custo de API já que é Ollama local)
-    if not args.force and os.path.exists(args.out):
-        already_scored = pd.read_csv(args.out, index_col=0, parse_dates=True).index
+    # à toa, mesmo sem custo de API já que é Ollama local), e pra retomar uma
+    # corrida longa que caiu no meio
+    if not args.force and os.path.exists(controle_path):
+        already_scored = pd.read_csv(controle_path, index_col=0, parse_dates=True).index
         already_scored_str = {d.strftime("%Y-%m-%d") for d in already_scored}
         antes = len(texts_by_date_ticker)
         texts_by_date_ticker = {d: v for d, v in texts_by_date_ticker.items() if d not in already_scored_str}
@@ -229,22 +239,45 @@ def main():
         return
 
     if args.structured:
-        novos_scores, confianca_df, relevancia_df = sentiment.score_history_structured(texts_by_date_ticker, provider=args.provider)
+        # checkpoint num arquivo temporário: só depois de mesclar com o que já
+        # existia é que ele vira o raw_path definitivo
+        parcial_path = raw_path.replace(".csv", "_parcial.csv")
+        _, confianca_df, relevancia_df = sentiment.score_history_structured(
+            texts_by_date_ticker, provider=args.provider, checkpoint_path=parcial_path,
+        )
+        novos_raw = pd.read_csv(parcial_path, index_col=0, parse_dates=True)
+
+        def _merge(novo: pd.DataFrame, caminho: str) -> pd.DataFrame:
+            if os.path.exists(caminho) and not args.force:
+                antigo = pd.read_csv(caminho, index_col=0, parse_dates=True)
+                junto = pd.concat([antigo, novo]).sort_index()
+                return junto[~junto.index.duplicated(keep="last")]
+            return novo.sort_index()
+
+        raw_completo = _merge(novos_raw, raw_path)
+        raw_completo.to_csv(raw_path)
+
         conf_path = args.out.replace(".csv", "_confianca.csv")
         rel_path = args.out.replace(".csv", "_relevancia.csv")
-        confianca_df.to_csv(conf_path)
-        relevancia_df.to_csv(rel_path)
-        print(f"[build_sentiment_dataset] Confiança salva em {conf_path}, relevância em {rel_path}")
+        _merge(confianca_df, conf_path).to_csv(conf_path)
+        _merge(relevancia_df, rel_path).to_csv(rel_path)
+
+        for p in (parcial_path, parcial_path.replace(".csv", "_confianca.csv"),
+                  parcial_path.replace(".csv", "_relevancia.csv")):
+            if os.path.exists(p):
+                os.remove(p)
+
+        # EMA sobre a série COMPLETA (não só sobre o pedaço novo)
+        scores_df = raw_completo.apply(sentiment.apply_ema)
+        print(f"[build_sentiment_dataset] Score cru em {raw_path}, confiança em {conf_path}, relevância em {rel_path}")
     else:
         novos_scores = sentiment.score_history(texts_by_date_ticker)
-
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    if os.path.exists(args.out) and not args.force:
-        existentes = pd.read_csv(args.out, index_col=0, parse_dates=True)
-        scores_df = pd.concat([existentes, novos_scores]).sort_index()
-        scores_df = scores_df[~scores_df.index.duplicated(keep="last")]
-    else:
-        scores_df = novos_scores
+        if os.path.exists(args.out) and not args.force:
+            existentes = pd.read_csv(args.out, index_col=0, parse_dates=True)
+            scores_df = pd.concat([existentes, novos_scores]).sort_index()
+            scores_df = scores_df[~scores_df.index.duplicated(keep="last")]
+        else:
+            scores_df = novos_scores
 
     scores_df.to_csv(args.out)
     print(f"\n[build_sentiment_dataset] Salvo em {args.out} ({len(scores_df)} dias no total)")

@@ -286,6 +286,8 @@ def score_history_structured(
     texts_by_date_ticker: dict[str, dict[str, list[str]]],
     tickers: list[str] = config.TICKERS,
     provider: str = "ollama",
+    checkpoint_path: str | None = None,
+    checkpoint_every: int = 25,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Versão estruturada de score_history: usa score_texts_structured (LLM,
@@ -295,9 +297,37 @@ def score_history_structured(
     Devolve 3 DataFrames: sentiment (já com EMA aplicado), confiança (crua,
     sem EMA — é reportada separada, não suavizada) e relevância (crua, útil
     pra auditoria/debug).
+
+    checkpoint_path: se informado, grava o parcial a cada `checkpoint_every`
+    datas. Rodar o histórico completo leva mais de uma hora de LLM local —
+    sem isso, qualquer queda (OOM na GPU, Ollama reiniciando, máquina
+    suspendendo) joga fora a corrida inteira. Como build_sentiment_dataset.py
+    pula datas que já estão no CSV de saída, basta reexecutar o mesmo comando
+    pra retomar de onde parou.
+
+    O checkpoint grava o sentimento SEM EMA (cru, com o gate de relevância já
+    aplicado). O EMA é recalculado sobre a série inteira no final — aplicar
+    EMA sobre um pedaço e depois concatenar daria um resultado diferente de
+    aplicar sobre a série completa.
     """
     linhas_sentiment, linhas_confianca, linhas_relevancia = {}, {}, {}
-    for date, per_ticker_texts in sorted(texts_by_date_ticker.items()):
+
+    def _para_df(linhas):
+        df = pd.DataFrame.from_dict(linhas, orient="index")
+        df.index = pd.to_datetime(df.index)
+        return df.sort_index()
+
+    def _grava_checkpoint():
+        if not checkpoint_path or not linhas_sentiment:
+            return
+        _para_df(linhas_sentiment).to_csv(checkpoint_path)
+        _para_df(linhas_confianca).to_csv(checkpoint_path.replace(".csv", "_confianca.csv"))
+        _para_df(linhas_relevancia).to_csv(checkpoint_path.replace(".csv", "_relevancia.csv"))
+        print(f"[sentiment] checkpoint: {len(linhas_sentiment)} data(s) gravada(s) em {checkpoint_path}")
+
+    datas_ordenadas = sorted(texts_by_date_ticker.items())
+    total = len(datas_ordenadas)
+    for i, (date, per_ticker_texts) in enumerate(datas_ordenadas, start=1):
         row_s, row_c, row_r = {}, {}, {}
         for ticker in tickers:
             texts = per_ticker_texts.get(ticker, [])
@@ -308,12 +338,12 @@ def score_history_structured(
         linhas_sentiment[date] = row_s
         linhas_confianca[date] = row_c
         linhas_relevancia[date] = row_r
-        print(f"[sentiment] {date}: sentiment*relevância={row_s}")
+        print(f"[sentiment] ({i}/{total}) {date}: sentiment*relevância={row_s}")
 
-    def _para_df(linhas):
-        df = pd.DataFrame.from_dict(linhas, orient="index")
-        df.index = pd.to_datetime(df.index)
-        return df.sort_index()
+        if checkpoint_path and i % checkpoint_every == 0:
+            _grava_checkpoint()
+
+    _grava_checkpoint()
 
     sentiment_raw_df = _para_df(linhas_sentiment)
     confianca_df = _para_df(linhas_confianca)

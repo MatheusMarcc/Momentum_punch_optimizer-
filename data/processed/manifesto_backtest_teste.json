@@ -1,0 +1,221 @@
+{
+  "experimento": "backtest_real_teste",
+  "categoria_da_evidencia": "VERIFICADO",
+  "quando": "2026-08-16T14:06:28",
+  "codigo": {
+    "commit": "d726ef6aded4939560f2d2a2694b44241620b320",
+    "branch": "marcG-branch",
+    "arvore_suja": true,
+    "arquivos_modificados": [
+      "EADME.md",
+      "__pycache__/build_sentiment_dataset.cpython-313.pyc",
+      "__pycache__/run_real_backtest.cpython-313.pyc",
+      "build_sentiment_dataset.py",
+      "collect_data.py",
+      "dashboard.py",
+      "data/decisao_atual.json",
+      "data/processed/ablation_results.csv",
+      "data/processed/equity_curves.csv",
+      "data/processed/sentiment_scores.csv",
+      "data/processed/stress_index.csv",
+      "data/processed/validate_signal_matrix.csv",
+      "data/raw/bacen_focus.csv",
+      "data/raw/bacen_sgs.csv",
+      "data/raw/cvm_fatos_relevantes.csv",
+      "data/raw/etf_prices.csv",
+      "data/raw/rss_news.csv",
+      "gdelt_historical_pull.py",
+      "momentum_punch/__pycache__/backtest.cpython-313.pyc",
+      "momentum_punch/__pycache__/config.cpython-313.pyc",
+      "momentum_punch/__pycache__/optimizer.cpython-313.pyc",
+      "momentum_punch/__pycache__/sentiment.cpython-313.pyc",
+      "momentum_punch/backtest.py",
+      "momentum_punch/config.py",
+      "momentum_punch/optimizer.py",
+      "momentum_punch/sentiment.py",
+      "run_ablations.py",
+      "run_diagnostics.py",
+      "run_live.py",
+      "run_real_backtest.py",
+      "test_suite.py",
+      "validate_signal.py",
+      "validate_signal_matrix.py",
+      ".gitignore",
+      "avaliar_classificador.py",
+      "data/processed/ablation_results_contrafactual.csv",
+      "data/processed/conjunto_rotulagem.csv",
+      "data/processed/conjunto_rotulagem_INSTRUCOES.txt",
+      "data/processed/manifesto_ablacao_teste.json",
+      "data/processed/manifesto_backtest_teste.json",
+      "data/processed/sentiment_scores_genai.csv",
+      "data/processed/sentiment_scores_genai_confianca.csv",
+      "data/processed/sentiment_scores_genai_raw.csv",
+      "data/processed/sentiment_scores_genai_relevancia.csv",
+      "data/processed/tabelas/",
+      "data/raw/benchmark_prices.csv",
+      "gerar_tabelas_relatorio.py",
+      "momentum_punch/manifesto.py",
+      "momentum_punch/text_filter.py",
+      "montar_conjunto_rotulagem.py"
+    ]
+  },
+  "ambiente": {
+    "python": "3.13.7",
+    "so": "Windows-11-10.0.26200-SP0"
+  },
+  "entradas": {
+    "precos": {
+      "caminho": "data/raw/etf_prices.csv",
+      "sha256": "bd9df2784b512afe7a168f857dd44b1b847b855fd8c7cdcc27a7c1fd4bfd3c46"
+    },
+    "cdi": {
+      "caminho": "data/raw/bacen_sgs.csv",
+      "sha256": "9f8350601627200f8ce71942328037145a2560c8f845af4b23aa84c42d6d47af"
+    },
+    "sentiment": {
+      "caminho": "data/processed/sentiment_scores_genai.csv",
+      "sha256": "f9edb1ab92c43de46037597368adb08df75dff3a2bc114500b56c024152d589f"
+    },
+    "stress": {
+      "caminho": "data/processed/stress_index.csv",
+      "sha256": "0a46266491bbb043b045fc6ba473151b31f0bb9bdffd6944f353dcd115cc1ccd"
+    },
+    "precos_benchmark": {
+      "caminho": "data/raw/benchmark_prices.csv",
+      "sha256": "1cbfce8c146be8fbf67e42808a50aba401c1dea9f61b8e2c8302237901638050"
+    }
+  },
+  "parametros_do_modelo": {
+    "universo": [
+      "ISUS11",
+      "GOVE11",
+      "REVE11",
+      "BOVA11"
+    ],
+    "ativo_livre_de_risco": "CDI",
+    "rebalanceamento": "W",
+    "janela_covariancia_dias": 60,
+    "aversao_ao_risco": 3.0,
+    "peso_maximo_por_etf": 0.5,
+    "peso_minimo_por_etf": 0.0,
+    "ema_halflife_dias": 5,
+    "limiar_estresse": 0.6,
+    "exposicao_maxima_risk_off": 0.3,
+    "tilt_por_ticker": {
+      "ISUS11": 0.0,
+      "GOVE11": 0.0,
+      "REVE11": 0.0,
+      "BOVA11": 0.0
+    },
+    "tilt_base": 0.0,
+    "corte_treino_teste": "2024-12-31"
+  },
+  "parametros_da_execucao": {
+    "periodo": "teste",
+    "mu_method": "tilt_linear",
+    "custo_bps": 10.0,
+    "janela_precos": "2021-08-17 a 2026-08-14",
+    "dias_avaliados": 399
+  },
+  "llm": {
+    "provider_estruturado": "ollama",
+    "modelo": "qwen2.5:3b-instruct-q4_K_M",
+    "temperatura": 0.1,
+    "prompt_template_sha256": "9cc77a9e3cb074e67b1257f59618a4dbc00579dabcfd7735b6e9809a6835482d",
+    "modelo_finbert": "lucas-leme/FinBERT-PT-BR"
+  },
+  "metricas": {
+    "Momentum Punch": {
+      "Retorno total": "51.60%",
+      "CAGR": "30.05%",
+      "Volatilidade anual": "13.63%",
+      "Sharpe (excedente ao CDI)": "1.01",
+      "Sortino (excedente ao CDI)": "1.75",
+      "Calmar": "4.00",
+      "Retorno/Vol (NÃO é Sharpe)": "2.00",
+      "Max drawdown": "-7.51%",
+      "Tempo submerso": "85% dos dias (maior sequência: 78 dias)",
+      "Melhor mês": "10.66%",
+      "Pior mês": "-4.54%",
+      "CDI acumulado no período": "23.68%",
+      "Exposição média a risco": "83.3%",
+      "Concentração máxima": "50.0%",
+      "Rebalanceamentos em Risk-Off": "20/84 (24%)",
+      "Giro médio por rebal.": "44.9%"
+    },
+    "100% BOVA11": {
+      "Retorno total": "36.50%",
+      "CAGR": "21.71%",
+      "Volatilidade anual": "17.41%",
+      "Sharpe (excedente ao CDI)": "0.45",
+      "Sortino (excedente ao CDI)": "0.68",
+      "Calmar": "1.34",
+      "Retorno/Vol (NÃO é Sharpe)": "1.22",
+      "Max drawdown": "-16.26%",
+      "Tempo submerso": "83% dos dias (maior sequência: 83 dias)",
+      "Melhor mês": "11.33%",
+      "Pior mês": "-7.25%",
+      "CDI acumulado no período": "23.68%"
+    },
+    "60% BOVA11 / 40% CDI": {
+      "Retorno total": "31.97%",
+      "CAGR": "19.15%",
+      "Volatilidade anual": "10.45%",
+      "Sharpe (excedente ao CDI)": "0.45",
+      "Sortino (excedente ao CDI)": "0.68",
+      "Calmar": "2.21",
+      "Retorno/Vol (NÃO é Sharpe)": "1.73",
+      "Max drawdown": "-8.66%",
+      "Tempo submerso": "79% dos dias (maior sequência: 83 dias)",
+      "Melhor mês": "7.14%",
+      "Pior mês": "-3.97%",
+      "CDI acumulado no período": "23.68%"
+    },
+    "Pesos iguais entre ETFs": {
+      "Retorno total": "27.38%",
+      "CAGR": "16.51%",
+      "Volatilidade anual": "14.27%",
+      "Sharpe (excedente ao CDI)": "0.20",
+      "Sortino (excedente ao CDI)": "0.34",
+      "Calmar": "1.79",
+      "Retorno/Vol (NÃO é Sharpe)": "1.14",
+      "Max drawdown": "-9.23%",
+      "Tempo submerso": "85% dos dias (maior sequência: 79 dias)",
+      "Melhor mês": "6.30%",
+      "Pior mês": "-3.21%",
+      "CDI acumulado no período": "23.68%"
+    },
+    "ESG estática (ISUS11/GOVE11/REVE11)": {
+      "Retorno total": "24.23%",
+      "CAGR": "14.69%",
+      "Volatilidade anual": "13.98%",
+      "Sharpe (excedente ao CDI)": "0.09",
+      "Sortino (excedente ao CDI)": "0.15",
+      "Calmar": "1.79",
+      "Retorno/Vol (NÃO é Sharpe)": "1.05",
+      "Max drawdown": "-8.19%",
+      "Tempo submerso": "88% dos dias (maior sequência: 79 dias)",
+      "Melhor mês": "5.79%",
+      "Pior mês": "-3.26%",
+      "CDI acumulado no período": "23.68%"
+    },
+    "40% BOVA11 / 40% IVVB11 / 20% CDI": {
+      "Retorno total": "25.30%",
+      "CAGR": "15.31%",
+      "Volatilidade anual": "9.45%",
+      "Sharpe (excedente ao CDI)": "0.13",
+      "Sortino (excedente ao CDI)": "0.20",
+      "Calmar": "2.17",
+      "Retorno/Vol (NÃO é Sharpe)": "1.56",
+      "Max drawdown": "-7.05%",
+      "Tempo submerso": "80% dos dias (maior sequência: 66 dias)",
+      "Melhor mês": "3.73%",
+      "Pior mês": "-1.54%",
+      "CDI acumulado no período": "23.68%"
+    }
+  },
+  "saidas": [
+    "data/processed/equity_curves.csv"
+  ],
+  "observacoes": null
+}

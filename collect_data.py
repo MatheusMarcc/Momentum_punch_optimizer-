@@ -23,12 +23,20 @@ import traceback
 
 os.makedirs("data/raw", exist_ok=True)
 
+# Profundidade padrão das séries macro. Precisa cobrir a janela de PREÇO inteira
+# com folga — o stress index usa z-score móvel de 60 dias, então uma série que
+# começa junto com o backtest deixa os primeiros meses sem stress calculável, e
+# o `fillna(0.0)` do carregador transforma isso em "Risk-On por ausência de
+# dado". Era o que acontecia: Focus vinha com 2 anos contra 5 de preço, e 29%
+# do backtest rodava com o circuit breaker cego.
+ANOS_HISTORICO_MACRO = 6
+
 
 def run_bacen_sgs():
     from momentum_punch.collectors import bacen_sgs
 
     hoje = dt.date.today()
-    inicio = (hoje - dt.timedelta(days=365 * 3)).strftime("%d/%m/%Y")
+    inicio = (hoje - dt.timedelta(days=365 * ANOS_HISTORICO_MACRO)).strftime("%d/%m/%Y")
     fim = hoje.strftime("%d/%m/%Y")
     df = bacen_sgs.fetch_all_series(inicio, fim)
     df.to_csv("data/raw/bacen_sgs.csv")
@@ -39,7 +47,7 @@ def run_bacen_focus():
     from momentum_punch.collectors import bacen_focus
 
     hoje = dt.date.today()
-    inicio = (hoje - dt.timedelta(days=365 * 2)).strftime("%Y-%m-%d")
+    inicio = (hoje - dt.timedelta(days=365 * ANOS_HISTORICO_MACRO)).strftime("%Y-%m-%d")
     fim = hoje.strftime("%Y-%m-%d")
     df = bacen_focus.fetch_focus_stress_inputs(inicio, fim)
     df.to_csv("data/raw/bacen_focus.csv")
